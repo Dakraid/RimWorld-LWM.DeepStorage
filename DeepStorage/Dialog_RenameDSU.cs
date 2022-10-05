@@ -1,4 +1,3 @@
-using System;
 using RimWorld;
 using Verse;
 using UnityEngine;
@@ -6,11 +5,11 @@ using UnityEngine;
 namespace LWM.DeepStorage
 {
 	// ripped shamelessly from Dialog_RenameZone
-	public class Dialog_RenameDSU : Dialog_Rename
+	public class DialogRenameDsu : Dialog_Rename
 	{
-		public Dialog_RenameDSU(CompDeepStorage cds)
+		public DialogRenameDsu(CompDeepStorage cds)
 		{
-			this.cds = cds;
+			this._cds = cds;
 			this.curName = cds.parent.Label;
 		}
 
@@ -18,8 +17,11 @@ namespace LWM.DeepStorage
         // But use "" to reset to default.
 		protected override AcceptanceReport NameIsValid(string name)
 		{
-            if (name.Length == 0) return true;
-			AcceptanceReport result = base.NameIsValid(name);
+            if (name.Length == 0)
+            {
+                return true;
+            }
+            var result = base.NameIsValid(name);
 			if (!result.Accepted)
 			{
 				return result;
@@ -29,8 +31,8 @@ namespace LWM.DeepStorage
 
 		protected override void SetName(string name)
 		{
-			this.cds.buildingLabel = name;
-			Messages.Message("LWM_DSU_GainsName".Translate(this.cds.parent.def.label, cds.parent.Label),
+			this._cds._buildingLabel = name;
+			Messages.Message("LWM_DSU_GainsName".Translate(this._cds.parent.def.label, _cds.parent.Label),
                              MessageTypeDefOf.TaskCompletion, false);
 		}
 
@@ -57,6 +59,6 @@ namespace LWM.DeepStorage
         // override InitialSize to make it bigger
         // override DoWindowContents to add a new button on top of "Okay" that says "reset"?
 
-		private CompDeepStorage cds;
+		private CompDeepStorage _cds;
 	}
 }

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO; //for Path() in trace
+//for Path() in trace
 using System.Linq;
 using RimWorld;
 using Verse;
@@ -9,19 +9,19 @@ using UnityEngine;
 namespace LWM.DeepStorage
 {
     public class Settings : ModSettings {
-        public static bool robotsCanUse=false;
-        public static bool storingTakesTime=true;
-        public static float storingGlobalScale=1f;
-        public static bool storingTimeConsidersStackSize=true;
-        public static StoragePriority defaultStoragePriority=StoragePriority.Important;
-        public static bool useEjectButton=true; // I think users will want it, alho I will prolly not
-        public static bool useDeepStorageRightClickLogic=false;
+        public static bool _robotsCanUse=false;
+        public static bool _storingTakesTime=true;
+        public static float _storingGlobalScale=1f;
+        public static bool _storingTimeConsidersStackSize=true;
+        public static StoragePriority _defaultStoragePriority=StoragePriority.Important;
+        public static bool _useEjectButton=true; // I think users will want it, alho I will prolly not
+        public static bool _useDeepStorageRightClickLogic=false;
         // Turning this off removes conflicts with some other storage mods (at least I hope so):
         //   (RimFactory? I think?)
-        public static bool checkOverCapacity=true;
+        public static bool _checkOverCapacity=true;
 
-        public static bool allowPerDSUSettings=false;
-        public static DefChangeTracker defTracker=new DefChangeTracker();
+        public static bool _allowPerDsuSettings=false;
+        public static DefChangeTracker _defTracker=new DefChangeTracker();
 
         // Architect Menu:
         // The defName for the DesignationCategoryDef the mod items are in by default:
@@ -31,22 +31,30 @@ namespace LWM.DeepStorage
         // <[const string]_ArchitectMenuSettings>Location on Architect Menu:</...>
         // Copy and paste the rest of anything that says "Architect Menu"
         // Change the list of new mod items in the final place "Architect Menu" tells you to
-        private const string architectMenuDefaultDesigCatDef="LWM_DS_Storage";
-        private static string architectMenuDesigCatDef=architectMenuDefaultDesigCatDef;
-        private static bool architectMenuAlwaysShowCategory=false;
-        private static bool architectMenuMoveALLStorageItems=true;
+        private const string ArchitectMenuDefaultDesigCatDef="LWM_DS_Storage";
+        private static string _architectMenuDesigCatDef=Settings.ArchitectMenuDefaultDesigCatDef;
+        private static bool _architectMenuAlwaysShowCategory=false;
+        private static bool _architectMenuMoveAllStorageItems=true;
         //   For later use if def is removed from menu...so we can put it back:
-        private static DesignationCategoryDef architectMenuActualDef=null;
-        private static bool architectMenuAlwaysShowTmp=false;
-        private static bool architectMenuMoveALLTmp=true;
+        private static DesignationCategoryDef _architectMenuActualDef=null;
+        private static bool _architectMenuAlwaysShowTmp=false;
+        private static bool _architectMenuMoveAllTmp=true;
 
 
         public static IEnumerable<ThingDef> AllDeepStorageUnits {
             get {
                 var x = LoadedDeepStorageUnits;
-                if (x==null) Log.Error("Loaded is null");
-                foreach (var d in x) yield return d;
-                foreach (ThingDef d in Settings.defTracker.GetAllWithKeylet<ThingDef>("def")) {
+                if (x==null)
+                {
+                    Log.Error("Loaded is null");
+                }
+
+                foreach (var d in x)
+                {
+                    yield return d;
+                }
+
+                foreach (var d in Settings._defTracker.GetAllWithKeylet<ThingDef>("def")) {
                     yield return d;
                 }
                 yield break;
@@ -60,7 +68,10 @@ namespace LWM.DeepStorage
                     yield break;
                 }
                 foreach (var d in db) {
-                    if (d.HasComp(typeof(CompDeepStorage))) yield return d;
+                    if (d.HasComp(typeof(CompDeepStorage)))
+                    {
+                        yield return d;
+                    }
                 }
                 yield break;
             }
@@ -68,59 +79,59 @@ namespace LWM.DeepStorage
 
         //TODO-scroll: can I make these non-static? Probably, but there's no point, right?
         //             Either way, there will be memory allocated for them :p
-        private static Vector2 scrollPosition = new Vector2(0f, 0f);
-        private static float totalContentHeight = 1000f;
+        private static Vector2 _scrollPosition = new Vector2(0f, 0f);
+        private static float _totalContentHeight = 1000f;
         private const float ScrollBarWidthMargin = 18f;
         // NOTE: They removed Listing_Standard's scroll views in 1.3 :p
         //private static Rect viewRect=new Rect(0,0,100f,10000f); // OMG OMG OMG I got scrollView in Listing_Standard to work!
         public static void DoSettingsWindowContents(Rect inRect) {
             ModMetaData tmpMod;
-            Color origColor=GUI.color; // make option gray if ignored
-            Rect outerRect=inRect.ContractedBy(10f);
+            var origColor=GUI.color; // make option gray if ignored
+            var outerRect=inRect.ContractedBy(10f);
             Widgets.DrawHighlight(outerRect);
 
             // We put a scrollbar around a listing_standard; it seems to work okay
-            bool scrollBarVisible = totalContentHeight > outerRect.height;
-            var scrollViewTotal = new Rect(0f, 0f, outerRect.width - (scrollBarVisible ? ScrollBarWidthMargin : 0), totalContentHeight);
-            Widgets.BeginScrollView(outerRect, ref scrollPosition, scrollViewTotal);
+            var scrollBarVisible = Settings._totalContentHeight > outerRect.height;
+            var  scrollViewTotal  = new Rect(0f, 0f, outerRect.width - (scrollBarVisible ? ScrollBarWidthMargin : 0), Settings._totalContentHeight);
+            Widgets.BeginScrollView(outerRect, ref Settings._scrollPosition, scrollViewTotal);
 
-            Listing_Standard l = new Listing_Standard(GameFont.Medium); // my tiny high-resolution monitor :p
+            var l = new Listing_Standard(GameFont.Medium); // my tiny high-resolution monitor :p
             l.Begin(new Rect(0f, 0f, scrollViewTotal.width, 9999f)); // Some RW window does this "9999f" thing, & it seems to work?
             //l.GapLine();  // Who can haul to Deep Storage (robots, animals, etc)
             l.Label("LWMDShaulToStorageExplanation".Translate());
-            l.CheckboxLabeled("LWMDSrobotsCanUse".Translate(), ref robotsCanUse, "LWMDSrobotsCanUseDesc".Translate());
+            l.CheckboxLabeled("LWMDSrobotsCanUse".Translate(), ref Settings._robotsCanUse, "LWMDSrobotsCanUseDesc".Translate());
             string [] intLabels={
                 "LWM_DS_Int_Animal".Translate(),
                 "LWM_DS_Int_ToolUser".Translate(),
                 "LWM_DS_Int_Humanlike".Translate(),
             };
             // Setting to allow bionic racoons to haul to Deep Storage:
-            l.EnumRadioButton<Intelligence>(ref Patch_IsGoodStoreCell.NecessaryIntelligenceToUseDeepStorage, "LWM_DS_IntTitle".Translate(),
+            l.EnumRadioButton<Intelligence>(ref PatchIsGoodStoreCell._necessaryIntelligenceToUseDeepStorage, "LWM_DS_IntTitle".Translate(),
                                             "LWM_DS_IntDesc".Translate(), false, intLabels);
 
             l.GapLine();  //Storing Delay Settings
             l.Label("LWMDSstoringDelaySettings".Translate());
             l.Label("LWMDSstoringDelayExplanation".Translate());
             l.CheckboxLabeled("LWMDSstoringTakesTimeLabel".Translate(),
-                                             ref storingTakesTime, "LWMDSstoringTakesTimeDesc".Translate());
-            l.Label("LWMDSstoringGlobalScale".Translate((storingGlobalScale*100f).ToString("0.")));
-            storingGlobalScale=l.Slider(storingGlobalScale, 0f, 2f);
+                                             ref Settings._storingTakesTime, "LWMDSstoringTakesTimeDesc".Translate());
+            l.Label("LWMDSstoringGlobalScale".Translate((Settings._storingGlobalScale*100f).ToString("0.")));
+            Settings._storingGlobalScale=l.Slider(Settings._storingGlobalScale, 0f, 2f);
             l.CheckboxLabeled("LWMDSstoringTimeConsidersStackSize".Translate(),
-                              ref storingTimeConsidersStackSize, "LWMDSstoringTimeConsidersStackSizeDesc".Translate());
+                              ref Settings._storingTimeConsidersStackSize, "LWMDSstoringTimeConsidersStackSizeDesc".Translate());
             // Reset storing delay settings to defaults
             if (l.ButtonText("LWMDSstoringDelaySettings".Translate()+": "+"ResetBinding".Translate()/*Reset to Default*/)) {
-                storingTakesTime=true;
-                storingGlobalScale=1f;
-                storingTimeConsidersStackSize=true;
+                Settings._storingTakesTime              = true;
+                Settings._storingGlobalScale            = 1f;
+                Settings._storingTimeConsidersStackSize = true;
             }
             l.GapLine(); // default Storing Priority
             if ( l.ButtonTextLabeled("LWM_DS_defaultStoragePriority".Translate(),
-                                     defaultStoragePriority.Label()) ) {
-                List<FloatMenuOption> mlist = new List<FloatMenuOption>();
+                                     Settings._defaultStoragePriority.Label()) ) {
+                var mlist = new List<FloatMenuOption>();
                 foreach (StoragePriority p in Enum.GetValues(typeof(StoragePriority))) {
                     mlist.Add(new FloatMenuOption(p.Label(), delegate() {
-                                defaultStoragePriority=p;
-                                foreach (ThingDef d in AllDeepStorageUnits) {
+                                Settings._defaultStoragePriority=p;
+                                foreach (var d in AllDeepStorageUnits) {
                                     d.building.defaultStorageSettings.Priority=p;
                                 }
                             }));
@@ -129,14 +140,14 @@ namespace LWM.DeepStorage
             }
             l.GapLine();
             l.Label("LWM_DS_userInterface".Translate());
-            l.CheckboxLabeled("LWM_DS_useEjectButton".Translate(), ref useEjectButton,
+            l.CheckboxLabeled("LWM_DS_useEjectButton".Translate(), ref Settings._useEjectButton,
                               "LWM_DS_useEjectButtonDesc".Translate());
             //TODO::
             if ((tmpMod=ModLister.GetActiveModWithIdentifier("netrve.dsgui"))!=null) {
                 GUI.color=Color.gray;
                 l.Label("LWMDSignoredDueTo".Translate(tmpMod.Name));
             }
-            l.CheckboxLabeled("LWM_DS_useDSRightClick".Translate(), ref useDeepStorageRightClickLogic,
+            l.CheckboxLabeled("LWM_DS_useDSRightClick".Translate(), ref Settings._useDeepStorageRightClickLogic,
                               "LWM_DS_useDSRightClickDesc".Translate());
 
             // Architect Menu:
@@ -161,21 +172,21 @@ namespace LWM.DeepStorage
                 }
                 tmp=x.LabelCap; // todo: (<menuname>)
             }*/
-            if ( l.ButtonTextLabeled((architectMenuDefaultDesigCatDef+"_ArchitectMenuSettings").Translate(), // Label
+            if ( l.ButtonTextLabeled((Settings.ArchitectMenuDefaultDesigCatDef+"_ArchitectMenuSettings").Translate(), // Label
                                      // value of dropdown button:
-                                     DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDesigCatDef)?.LabelCap
+                                     DefDatabase<DesignationCategoryDef>.GetNamed(Settings._architectMenuDesigCatDef)?.LabelCap
                                      ?? "--ERROR--") ) { // error display text
 //                                     , DefDatabase<DesigarchitectMenuDesigCatDef) ) {
                 // Float menu for architect Menu choice:
-                List<FloatMenuOption> alist = new List<FloatMenuOption>();
+                var alist = new List<FloatMenuOption>();
                 var arl=DefDatabase<DesignationCategoryDef>.AllDefsListForReading; //all reading list
                 //oops:
 //                alist.Add(new FloatMenuOption(DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDefaultDesigCatDef).LabelCap
-                alist.Add(new FloatMenuOption(architectMenuActualDef.LabelCap +
-                                              " ("+"default".Translate()+" - "+architectMenuActualDef.defName+")",
+                alist.Add(new FloatMenuOption(Settings._architectMenuActualDef.LabelCap +
+                                              " ("+"default".Translate()+" - "+Settings._architectMenuActualDef.defName+")",
                                               delegate () {
-                                                  Utils.Mess(Utils.DBF.Settings, "Architect Menu placement set to default Storage");
-                                                  ArchitectMenu_ChangeLocation(architectMenuDefaultDesigCatDef);
+                                                  Utils.Mess(Utils.Dbf.Settings, "Architect Menu placement set to default Storage");
+                                                  ArchitectMenu_ChangeLocation(Settings.ArchitectMenuDefaultDesigCatDef);
 //                                                  architectCurrentDesignationCatDef=architectLWM_DS_Storage_DesignationCatDef;
 //                                                  architectMenuDesignationCatDefDefName="LWM_DS_Storage";
 //
@@ -185,46 +196,48 @@ namespace LWM.DeepStorage
                 alist.Add(new FloatMenuOption(DefDatabase<DesignationCategoryDef>.GetNamed("Furniture").LabelCap+
                                               " (Furniture)", // I know what this one's defName is!
                                               delegate () {
-                                                  Utils.Mess(Utils.DBF.Settings, "Architect Menu placement set to Furniture.");
+                                                  Utils.Mess(Utils.Dbf.Settings, "Architect Menu placement set to Furniture.");
                                                   ArchitectMenu_ChangeLocation("Furniture");
                                               }, MenuOptionPriority.Default,null,null,0f,null,null));
                 foreach (var adcd in arl) { //architect designation cat def
-                    if (adcd.defName!=architectMenuDefaultDesigCatDef && adcd.defName!="Furniture")
+                    if (adcd.defName!=Settings.ArchitectMenuDefaultDesigCatDef && adcd.defName!="Furniture")
+                    {
                         alist.Add(new FloatMenuOption(adcd.LabelCap+" ("+adcd.defName+")",
-                                                      delegate () {
-                                                          Utils.Mess(Utils.DBF.Settings, "Architect Menu placement set to "+adcd);
-                                                          ArchitectMenu_ChangeLocation(adcd.defName);
-                                                      }, MenuOptionPriority.Default,null,null,0f,null,null));
+                            delegate () {
+                                Utils.Mess(Utils.Dbf.Settings, "Architect Menu placement set to "+adcd);
+                                Settings.ArchitectMenu_ChangeLocation(adcd.defName);
+                            }, MenuOptionPriority.Default,null,null,0f,null,null));
+                    }
                 }
                 Find.WindowStack.Add(new FloatMenu(alist));
             }
-            l.CheckboxLabeled((architectMenuDefaultDesigCatDef+"_ArchitectMenuAlwaysShowCategory").Translate(),
-                              ref architectMenuAlwaysShowCategory,
-                              (architectMenuDefaultDesigCatDef+"_ArchitectMenuAlwaysShowDesc").Translate());
+            l.CheckboxLabeled((Settings.ArchitectMenuDefaultDesigCatDef+"_ArchitectMenuAlwaysShowCategory").Translate(),
+                              ref Settings._architectMenuAlwaysShowCategory,
+                              (Settings.ArchitectMenuDefaultDesigCatDef+"_ArchitectMenuAlwaysShowDesc").Translate());
             // Do we always display?  If so, display:
-            if (architectMenuAlwaysShowCategory != architectMenuAlwaysShowTmp) {
-                if (architectMenuAlwaysShowCategory) {
+            if (Settings._architectMenuAlwaysShowCategory != Settings._architectMenuAlwaysShowTmp) {
+                if (Settings._architectMenuAlwaysShowCategory) {
                     ArchitectMenu_Show();
-                } else if (architectMenuDesigCatDef != architectMenuDefaultDesigCatDef) {
+                } else if (Settings._architectMenuDesigCatDef != Settings.ArchitectMenuDefaultDesigCatDef) {
                     ArchitectMenu_Hide();
                 }
-                architectMenuAlwaysShowTmp=architectMenuAlwaysShowCategory;
+                Settings._architectMenuAlwaysShowTmp=Settings._architectMenuAlwaysShowCategory;
             }
-            l.CheckboxLabeled((architectMenuDefaultDesigCatDef+"_ArchitectMenuMoveALL").Translate(),
-                              ref architectMenuMoveALLStorageItems,
-                              (architectMenuDefaultDesigCatDef+"_ArchitectMenuMoveALLDesc").Translate());
-            if (architectMenuMoveALLStorageItems != architectMenuMoveALLTmp) {
+            l.CheckboxLabeled((Settings.ArchitectMenuDefaultDesigCatDef+"_ArchitectMenuMoveALL").Translate(),
+                              ref Settings._architectMenuMoveAllStorageItems,
+                              (Settings.ArchitectMenuDefaultDesigCatDef+"_ArchitectMenuMoveALLDesc").Translate());
+            if (Settings._architectMenuMoveAllStorageItems != Settings._architectMenuMoveAllTmp) {
                 //  If turning off "all things in Storage", make sure to
                 //    dump all the items into Furniture, to make sure they
                 //    can at least be found somewhere.
-                string ctmp=architectMenuDesigCatDef;
-                if (architectMenuMoveALLStorageItems==false) {
-                    architectMenuMoveALLStorageItems=true;
+                var ctmp=Settings._architectMenuDesigCatDef;
+                if (Settings._architectMenuMoveAllStorageItems==false) {
+                    Settings._architectMenuMoveAllStorageItems=true;
                     ArchitectMenu_ChangeLocation("Furniture");
-                    architectMenuMoveALLStorageItems=false;
+                    Settings._architectMenuMoveAllStorageItems=false;
                 }
                 ArchitectMenu_ChangeLocation(ctmp);
-                architectMenuMoveALLTmp=architectMenuMoveALLStorageItems;
+                Settings._architectMenuMoveAllTmp=Settings._architectMenuMoveAllStorageItems;
             }
             // finished drawing settings for Architect Menu
             // -------------------
@@ -240,21 +253,21 @@ namespace LWM.DeepStorage
                 // This setting is disabled due to mod [Extended Storage, etc]
                 l.Label("LWMDSignoredDueTo".Translate(tmpMod.Name));
             }
-            l.CheckboxLabeled("LWMDSoverCapacityCheck".Translate(), ref checkOverCapacity,
+            l.CheckboxLabeled("LWMDSoverCapacityCheck".Translate(), ref Settings._checkOverCapacity,
                               "LWMDSoverCapacityCheckDesc".Translate());
             GUI.color=origColor;
             // Per DSU settings - let players change them around...
             l.GapLine();
-            if (allowPerDSUSettings) {
+            if (Settings._allowPerDsuSettings) {
                 if (l.ButtonText("LWMDSperDSUSettings".Translate())) {
-                    Find.WindowStack.Add(new Dialog_DS_Settings());
+                    Find.WindowStack.Add(new DialogDSSettings());
                 }
             } else {
-                l.CheckboxLabeled("LWMDSperDSUturnOn".Translate(), ref allowPerDSUSettings,
+                l.CheckboxLabeled("LWMDSperDSUturnOn".Translate(), ref Settings._allowPerDsuSettings,
                                   "LWMDSperDSUturnOnDesc".Translate());
             }
             l.GapLine(); // End. Finis. Looks pretty having a line at the end.
-            totalContentHeight = l.CurHeight + 10f;
+            Settings._totalContentHeight = l.CurHeight + 10f;
             l.End();
             Widgets.EndScrollView();
         }
@@ -265,15 +278,15 @@ namespace LWM.DeepStorage
 
             // Def-related changes:
             //TODO: this should probably have an option....
-            if (defaultStoragePriority != StoragePriority.Important) {
-                foreach (ThingDef d in AllDeepStorageUnits) {
-                    d.building.defaultStorageSettings.Priority=defaultStoragePriority;
+            if (Settings._defaultStoragePriority != StoragePriority.Important) {
+                foreach (var d in AllDeepStorageUnits) {
+                    d.building.defaultStorageSettings.Priority=Settings._defaultStoragePriority;
                 }
             }
             // Re-read Mod Settings - some won't have been read because Defs weren't loaded:
             //   (do this after priority changes above to allow user to override changes)
 //todo:
-            Utils.Mess(Utils.DBF.Settings, "Defs Loaded.  About to re-load settings");
+            Utils.Mess(Utils.Dbf.Settings, "Defs Loaded.  About to re-load settings");
             // NOTE/WARNING: the mod's settings' FolderName will be different for non-steam and steam versions.
             //   Internally, they are loaded using:
             //     this.modSettings = LoadedModManager
@@ -282,17 +295,17 @@ namespace LWM.DeepStorage
             //   var s = LoadedModManager.ReadModSettings<Settings>("LWM.DeepStorage", "DeepStorageMod");
             // Do this instead:
             var mod=LoadedModManager.GetMod(typeof(LWM.DeepStorage.DeepStorageMod));
-            Utils.Warn(Utils.DBF.Settings, "About to re-read mod settings from: "+GenText
+            Utils.Warn(Utils.Dbf.Settings, "About to re-read mod settings from: "+GenText
                        .SanitizeFilename(string.Format("Mod_{0}_{1}.xml", mod.Content.FolderName, "DeepStorageMod")));
             var s = LoadedModManager.ReadModSettings<Settings>(mod.Content.FolderName, "DeepStorageMod");
             // Architect Menu:
-            if (architectMenuActualDef==null) {
-                architectMenuActualDef=DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDefaultDesigCatDef);
+            if (Settings._architectMenuActualDef==null) {
+                Settings._architectMenuActualDef=DefDatabase<DesignationCategoryDef>.GetNamed(Settings.ArchitectMenuDefaultDesigCatDef);
             }
-            if (architectMenuDesigCatDef != architectMenuDefaultDesigCatDef ||
-                architectMenuMoveALLStorageItems) // in which case, we need to redo menu anyway
+            if (Settings._architectMenuDesigCatDef != Settings.ArchitectMenuDefaultDesigCatDef ||
+                Settings._architectMenuMoveAllStorageItems) // in which case, we need to redo menu anyway
             {
-                ArchitectMenu_ChangeLocation(architectMenuDesigCatDef, true);
+                ArchitectMenu_ChangeLocation(Settings._architectMenuDesigCatDef, true);
             }
         }
 
@@ -300,10 +313,17 @@ namespace LWM.DeepStorage
         public static void ArchitectMenu_ChangeLocation(string newDefName, bool loadingOnStartup=false) {
 //            Utils.Warn(Utils.DBF.Settings, "SettingsChanged()");
             DesignationCategoryDef prevDesignationCatDef;
-            if (loadingOnStartup) prevDesignationCatDef=DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDefaultDesigCatDef);
-            else prevDesignationCatDef=DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDesigCatDef, false);
+            if (loadingOnStartup)
+            {
+                prevDesignationCatDef = DefDatabase<DesignationCategoryDef>.GetNamed(Settings.ArchitectMenuDefaultDesigCatDef);
+            }
+            else
+            {
+                prevDesignationCatDef = DefDatabase<DesignationCategoryDef>.GetNamed(Settings._architectMenuDesigCatDef, false);
+            }
+
             // If switching to default, put default into def database.
-            if (newDefName == architectMenuDefaultDesigCatDef) {
+            if (newDefName == Settings.ArchitectMenuDefaultDesigCatDef) {
                 ArchitectMenu_Show();
             }
             // Compatibility Logic:
@@ -311,25 +331,25 @@ namespace LWM.DeepStorage
             //   maybe we want to remove the other menu?  Or maybe we want to use that
             //   one by default:
             // For Deep Storage, if the player also has Quantum Storage, use their menu insead:
-            if (architectMenuMoveALLStorageItems && !architectMenuAlwaysShowCategory &&
-                newDefName==architectMenuDefaultDesigCatDef &&
+            if (Settings._architectMenuMoveAllStorageItems && !Settings._architectMenuAlwaysShowCategory &&
+                newDefName==Settings.ArchitectMenuDefaultDesigCatDef &&
                 ModLister.GetActiveModWithIdentifier("Cheetah.QuantumStorageRedux")!=null) {
                 newDefName="QSRStorage";
             }
-            DesignationCategoryDef newDesignationCatDef=DefDatabase<DesignationCategoryDef>.GetNamed(newDefName);
+            var newDesignationCatDef=DefDatabase<DesignationCategoryDef>.GetNamed(newDefName);
             if (newDesignationCatDef == null) {
                 Log.Warning("LWM.DeepStorage: Failed to find menu category "+newDefName+" - reverting to default");
-                newDefName=architectMenuDefaultDesigCatDef;
+                newDefName=Settings.ArchitectMenuDefaultDesigCatDef;
                 ArchitectMenu_Show();
                 newDesignationCatDef=DefDatabase<DesignationCategoryDef>.GetNamed(newDefName);
             }
             // Architect Menu: Specify all your buildings/etc:
             //   var allMyBuildings=DefDatabase<ThingDef>.AllDefsListForReading.FindAll(x=>x.HasComp(etc)));
-            List<ThingDef> itemsToMove=LoadedDeepStorageUnits.ToList();
+            var itemsToMove=LoadedDeepStorageUnits.ToList();
             // We can move ALL the storage buildings!  If the player wants.  I do.
-            List<DesignationCategoryDef> desigsToNotMove=new List<DesignationCategoryDef>();
-            List<DesignationCategoryDef> desigsToOnlyCopy=new List<DesignationCategoryDef>();
-            if (architectMenuMoveALLStorageItems) {
+            var desigsToNotMove=new List<DesignationCategoryDef>();
+            var desigsToOnlyCopy=new List<DesignationCategoryDef>();
+            if (Settings._architectMenuMoveAllStorageItems) {
 //                Log.Error("Trying to mvoe everythign:");
                 // Don't move hoppers, etc:
                 desigsToNotMove.Add(DefDatabase<DesignationCategoryDef>.GetNamed("Production"));
@@ -337,20 +357,30 @@ namespace LWM.DeepStorage
                 //   (hoppers, etc.)
                 //   Note that it's possible the ReplimatFeedTank should be copied to Storage,
                 //   but I think it's okay to leave it in Replimat.
-                DesignationCategoryDef tmp=DefDatabase<DesignationCategoryDef>.GetNamed("Replimat_Replimat", false);
-                if (tmp!=null) desigsToNotMove.Add(tmp);
+                var tmp=DefDatabase<DesignationCategoryDef>.GetNamed("Replimat_Replimat", false);
+                if (tmp!=null)
+                {
+                    desigsToNotMove.Add(tmp);
+                }
                 // TODO: get these categories in a more flexible way!
                 // ProjectRimFactory has several subclasses of Building_Storage that are in the Industrial category.
                 //   Several users of PRF have gotten confused when they couldn't find the storage things.
-                DesignationCategoryDef industrialCategory=DefDatabase<DesignationCategoryDef>.GetNamed("Industrial", false);
+                var industrialCategory=DefDatabase<DesignationCategoryDef>.GetNamed("Industrial", false);
                 //   So we COULD remove those storage buildings from our list too:
                 //     if (industrialCategory!=null) desigsToNotMove.Add(industrialCategory);
                 //   But, let's just copy them:
-                if (industrialCategory!=null) desigsToOnlyCopy.Add(industrialCategory);
+                if (industrialCategory!=null)
+                {
+                    desigsToOnlyCopy.Add(industrialCategory);
+                }
                 // Bonus PRF: DocWorld changes the designation from Industrial to DZ_Industrial.
                 // Get them both:
                 industrialCategory=DefDatabase<DesignationCategoryDef>.GetNamed("DZ_Industrial", false);
-                if (industrialCategory!=null) desigsToOnlyCopy.Add(industrialCategory);
+                if (industrialCategory!=null)
+                {
+                    desigsToOnlyCopy.Add(industrialCategory);
+                }
+
                 // Interesting detail: apparently it IS possible to have thingDefs with null thingClass... weird.
                 itemsToMove=DefDatabase<ThingDef>.AllDefsListForReading
                     .FindAll(x=>((x?.thingClass != null) && (x.thingClass==typeof(Building_Storage) ||
@@ -369,25 +399,30 @@ namespace LWM.DeepStorage
                 // testing:
 //                itemsToMove.AddRange(DefDatabase<ThingDef>.AllDefsListForReading.FindAll(x=>x.defName.Contains("MURWallLight")));
             }
-            Utils.Mess(Utils.DBF.Settings, "Moving these units to 'Storage' menu: "+string.Join(", ", itemsToMove));
+            Utils.Mess(Utils.Dbf.Settings, "Moving these units to 'Storage' menu: "+string.Join(", ", itemsToMove));
             // get access to a DesignationCategoryDef's resolvedDesignators:
-            var _resolvedDesignatorsField = typeof(DesignationCategoryDef)
+            var resolvedDesignatorsField = typeof(DesignationCategoryDef)
                 .GetField("resolvedDesignators", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var d in itemsToMove) {
-                if (d.designationCategory==null) continue; // very very possible
-//                Log.Error("Moving item "+d.defName+" (category: "+(d.designationCategory!=null?d.designationCategory.ToString():"NONE"));
-                List<Designator> resolvedDesignators= (List<Designator>)_resolvedDesignatorsField.GetValue(d.designationCategory);
+                if (d.designationCategory==null)
+                {
+                    continue; // very very possible
+                }
+                //                Log.Error("Moving item "+d.defName+" (category: "+(d.designationCategory!=null?d.designationCategory.ToString():"NONE"));
+                var resolvedDesignators= (List<Designator>)resolvedDesignatorsField.GetValue(d.designationCategory);
                 if (d.designatorDropdown == null) {
 //                    Log.Message("No dropdown");
                     // easy case:
                     // Old menu location:
                     if (!desigsToOnlyCopy.Contains(d.designationCategory))
 //                    Log.Message("  Removed this many entries in "+d.designationCategory+": "+
+                    {
                         resolvedDesignators.RemoveAll(x=>((x is Designator_Build) &&
                                                           ((Designator_Build)x).PlacingDef==d));
-//                        );
+                    }
+                    //                        );
                     // Now do new:
-                    resolvedDesignators=(List<Designator>)_resolvedDesignatorsField.GetValue(newDesignationCatDef);
+                    resolvedDesignators=(List<Designator>)resolvedDesignatorsField.GetValue(newDesignationCatDef);
                     // To make sure there are no duplicates:
                     resolvedDesignators.RemoveAll(x=>((x is Designator_Build) &&
                                                       ((Designator_Build)x).PlacingDef==d));
@@ -395,16 +430,18 @@ namespace LWM.DeepStorage
                 } else {
 //                    Log.Warning("LWM.DeepStorage: ThingDef "+d.defName+" has a dropdown Designator.");
                     // Hard case: Designator_Dropdowns!
-                    Designator_Dropdown dd=(Designator_Dropdown)resolvedDesignators.Find(x=>(x is Designator_Dropdown) &&
-                                                                    ((Designator_Dropdown)x).Elements
-                                                                    .Find(y=>(y is Designator_Build) &&
-                                                                          ((Designator_Build)y).PlacingDef==d)!=null);
+                    var dd=(Designator_Dropdown)resolvedDesignators.Find(x=>(x is Designator_Dropdown) &&
+                                                                            ((Designator_Dropdown)x).Elements
+                                                                                                    .Find(y=>(y is Designator_Build) &&
+                                                                                                             ((Designator_Build)y).PlacingDef==d)!=null);
                     if (dd != null) {
 //                        Log.Message("Found dropdown designator for "+d.defName);
                         if (!desigsToOnlyCopy.Contains(d.designationCategory))
+                        {
                             resolvedDesignators.Remove(dd);
+                        }
                         // Switch to new category:
-                        resolvedDesignators=(List<Designator>)_resolvedDesignatorsField.GetValue(newDesignationCatDef);
+                        resolvedDesignators=(List<Designator>)resolvedDesignatorsField.GetValue(newDesignationCatDef);
                         if (!resolvedDesignators.Contains(dd)) {
 //                            Log.Message("  Adding to new category "+newDesignationCatDef);
                             resolvedDesignators.Add(dd);
@@ -435,7 +472,7 @@ namespace LWM.DeepStorage
             //   can cause problems.  But nothing seems to use the .index for any
             //   DesignationCategoryDef except for the menu, so manually adjusting
             //   the DefsDatabase is safe enough:
-            if (!architectMenuAlwaysShowCategory && newDefName != architectMenuDefaultDesigCatDef) {
+            if (!Settings._architectMenuAlwaysShowCategory && newDefName != Settings.ArchitectMenuDefaultDesigCatDef) {
                 ArchitectMenu_Hide();
                 // ArchitectMenu_ClearCache(); //hide flushes cache
 //                    if (tmp.AllResolvedDesignators.Count <= tmp.specialDesignatorClasses.Count)
@@ -463,15 +500,15 @@ namespace LWM.DeepStorage
 
 
             // Oh, and actually change the setting that's stored:
-            architectMenuDesigCatDef=newDefName;
+            Settings._architectMenuDesigCatDef=newDefName;
 
             // Finally, if Extended Storage(!) is loaded, and we took all their
             //   storage items, remove their menu as well:
             DesignationCategoryDef tmpD;
             if (ModLister.HasActiveModWithName("Extended Storage")
                 &&((tmpD=DefDatabase<DesignationCategoryDef>.GetNamed("FurnitureStorage", false))!=null)
-                &&!architectMenuAlwaysShowCategory
-                &&architectMenuDesigCatDef != "FurnitureStorage") {
+                &&!Settings._architectMenuAlwaysShowCategory
+                &&Settings._architectMenuDesigCatDef != "FurnitureStorage") {
                 // DefDatabase<DesignationCategoryDef>.Remove(tmpD);
                 typeof(DefDatabase<>).MakeGenericType(new Type[] {typeof(DesignationCategoryDef)})
                     .GetMethod("Remove", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
@@ -525,13 +562,13 @@ namespace LWM.DeepStorage
             Harmony.AccessTools.Method(typeof(RimWorld.MainTabWindow_Architect), "CacheDesPanels")
                 .Invoke((), null);
 */
-            Utils.Warn(Utils.DBF.Settings, "Settings changed architect menu");
+            Utils.Warn(Utils.Dbf.Settings, "Settings changed architect menu");
 
         }
         public static void ArchitectMenu_Hide() {
             DesignationCategoryDef tmp;
-            if ((tmp=DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDefaultDesigCatDef, false))!=null
-                && !architectMenuAlwaysShowCategory) {
+            if ((tmp=DefDatabase<DesignationCategoryDef>.GetNamed(Settings.ArchitectMenuDefaultDesigCatDef, false))!=null
+                && !Settings._architectMenuAlwaysShowCategory) {
                 // DefDatabase<DesignationCategoryDef>.Remove(tmp);
                 typeof(DefDatabase<>).MakeGenericType(new Type[] {typeof(DesignationCategoryDef)})
                     .GetMethod("Remove", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
@@ -542,52 +579,51 @@ namespace LWM.DeepStorage
         }
 
         public static void ArchitectMenu_Show() {
-            if (DefDatabase<DesignationCategoryDef>.GetNamed(architectMenuDefaultDesigCatDef, false)==null) {
-                DefDatabase<DesignationCategoryDef>.Add(architectMenuActualDef);
+            if (DefDatabase<DesignationCategoryDef>.GetNamed(Settings.ArchitectMenuDefaultDesigCatDef, false)==null) {
+                DefDatabase<DesignationCategoryDef>.Add(Settings._architectMenuActualDef);
             }
             // No adding back Extended Storage menu if it's gone...
             ArchitectMenu_ClearCache();
         }
 
-        public static void ArchitectMenu_ClearCache() {
+        public static void ArchitectMenu_ClearCache() =>
             // Clear the architect menu cache:
             //   Run the main Architect.TabWindow.CacheDesPanels()
             typeof(RimWorld.MainTabWindow_Architect).GetMethod("CacheDesPanels", System.Reflection.BindingFlags.NonPublic |
-                                                                     System.Reflection.BindingFlags.Instance)
-                .Invoke(((MainTabWindow_Architect)MainButtonDefOf.Architect.TabWindow), null);
-        }
+                                                                                 System.Reflection.BindingFlags.Instance)
+                                                    .Invoke(((MainTabWindow_Architect)MainButtonDefOf.Architect.TabWindow), null);
 
         public override void ExposeData() {
-            Utils.Warn(Utils.DBF.Settings, "Expose Data called: Mode: "+Scribe.mode);
+            Utils.Warn(Utils.Dbf.Settings, "Expose Data called: Mode: "+Scribe.mode);
             //Log.Error("LWM.DeepStorage: Settings ExposeData() called");
             base.ExposeData();
 
-            Scribe_Values.Look(ref storingTakesTime, "storing_takes_time", true);
-            Scribe_Values.Look(ref storingGlobalScale, "storing_global_scale", 1f);
-            Scribe_Values.Look(ref storingTimeConsidersStackSize, "storing_time_CSS", true);
-            Scribe_Values.Look(ref robotsCanUse, "robotsCanUse", true);
-            Scribe_Values.Look(ref Patch_IsGoodStoreCell.NecessaryIntelligenceToUseDeepStorage, "int_to_use_DS", Intelligence.Humanlike);
-            Scribe_Values.Look(ref defaultStoragePriority, "default_s_priority", StoragePriority.Important);
-            Scribe_Values.Look(ref checkOverCapacity, "check_over_capacity", true);
-            Scribe_Values.Look(ref useEjectButton, "useEjectButton", true);
-            Scribe_Values.Look(ref useDeepStorageRightClickLogic, "useRightClickLogic", true); //turn on for everyone :p
+            Scribe_Values.Look(ref Settings._storingTakesTime, "storing_takes_time", true);
+            Scribe_Values.Look(ref Settings._storingGlobalScale, "storing_global_scale", 1f);
+            Scribe_Values.Look(ref Settings._storingTimeConsidersStackSize, "storing_time_CSS", true);
+            Scribe_Values.Look(ref Settings._robotsCanUse, "robotsCanUse", true);
+            Scribe_Values.Look(ref PatchIsGoodStoreCell._necessaryIntelligenceToUseDeepStorage, "int_to_use_DS", Intelligence.Humanlike);
+            Scribe_Values.Look(ref Settings._defaultStoragePriority, "default_s_priority", StoragePriority.Important);
+            Scribe_Values.Look(ref Settings._checkOverCapacity, "check_over_capacity", true);
+            Scribe_Values.Look(ref Settings._useEjectButton, "useEjectButton", true);
+            Scribe_Values.Look(ref Settings._useDeepStorageRightClickLogic, "useRightClickLogic", true); //turn on for everyone :p
             // Architect Menu:
-            Scribe_Values.Look(ref architectMenuDesigCatDef, "architect_desig", architectMenuDefaultDesigCatDef);
-            Scribe_Values.Look(ref architectMenuAlwaysShowCategory, "architect_show", false);
-            Scribe_Values.Look(ref architectMenuMoveALLStorageItems, "architect_moveall", true);
+            Scribe_Values.Look(ref Settings._architectMenuDesigCatDef, "architect_desig", Settings.ArchitectMenuDefaultDesigCatDef);
+            Scribe_Values.Look(ref Settings._architectMenuAlwaysShowCategory, "architect_show", false);
+            Scribe_Values.Look(ref Settings._architectMenuMoveAllStorageItems, "architect_moveall", true);
             // Per DSU Building storage settings:
-            Scribe_Values.Look(ref allowPerDSUSettings, "allowPerDSUSettings", false);
+            Scribe_Values.Look(ref Settings._allowPerDsuSettings, "allowPerDSUSettings", false);
             // Only load settigs if defs are loaded (there is separate mechanism to
             //   check settings after defs loaded)
-            if (allowPerDSUSettings && Verse.StaticConstructorOnStartupUtility.coreStaticAssetsLoaded) {
-                Dialog_DS_Settings.ExposeDSUSettings(AllDeepStorageUnits);
+            if (Settings._allowPerDsuSettings && Verse.StaticConstructorOnStartupUtility.coreStaticAssetsLoaded) {
+                DialogDSSettings.ExposeDsuSettings(AllDeepStorageUnits);
             }
         } // end ExposeData()
 
 
     }
 
-    static class DisplayHelperFunctions {
+    internal static class DisplayHelperFunctions {
         // Helper function to create EnumRadioButton for Enums in settings
         public static bool EnumRadioButton<T>(this Listing_Standard ls, ref T val, string label, string tooltip="",
                                               bool showEnumValues=true, string[] buttonLabels=null) {
@@ -595,13 +631,17 @@ namespace LWM.DeepStorage
                 Log.Error("LWM.DisplayHelperFunction: EnumRadioButton passed non-enum value");
                 return false;
             }
-            bool result=false;
+            var result=false;
             if (tooltip=="")
+            {
                 ls.Label(label);
+            }
             else
+            {
                 ls.Label(label,-1,tooltip);
+            }
             var enumValues = Enum.GetValues(val.GetType());
-            int i=0;
+            var i=0;
             foreach (T x in enumValues) {
                 string optionLabel;
                 if (showEnumValues || buttonLabels==null) {
@@ -660,8 +700,8 @@ namespace LWM.DeepStorage
         }
         */
         public static void MyLabel(float width, ref float y, string label, string tooltip=null) {
-            float h = Text.CalcHeight(label, width);
-            Rect r = new Rect(0,y,width,y+h);
+            var h = Text.CalcHeight(label, width);
+            var r = new Rect(0,y,width,y+h);
             Widgets.Label(r, label);
             if (tooltip != null && tooltip != "") {
                 TooltipHandler.TipRegion(r, tooltip);

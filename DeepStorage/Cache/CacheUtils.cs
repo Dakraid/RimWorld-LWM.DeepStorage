@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Text;
-using System.Threading.Tasks;
+
 using RimWorld;
 using Verse;
 
@@ -24,14 +21,14 @@ namespace LWM.DeepStorage
         }
 
         [Conditional("DEBUG")]
-        public static void PrintStates(this Deep_Storage_Cell_Storage_Model cellStorage)
+        public static void PrintStates(this DeepStorageCellStorageModel cellStorage)
         {
-                StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.AppendLine($"Storage at {cellStorage.Cell} has:");
+                var stringBuilder = new StringBuilder();
+                stringBuilder.AppendLine($"Storage at {cellStorage._cell} has:");
                 stringBuilder.AppendLine($"Stack: {cellStorage.Count}");
                 stringBuilder.AppendLine($"TotalWeight: {cellStorage.TotalWeight}");
                 stringBuilder.AppendLine($"NonFullThings:");
-                foreach (KeyValuePair<Thing, Thing> nonFullThing in cellStorage.NonFullThings) {
+                foreach (var nonFullThing in cellStorage.NonFullThings) {
                     stringBuilder.AppendLine($"{nonFullThing.Value}: {nonFullThing.Value.stackCount}");
                 }
 

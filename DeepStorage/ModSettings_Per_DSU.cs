@@ -21,8 +21,8 @@ using UnityEngine;
 namespace LWM.DeepStorage
 {
     // The window that lists all the DSUs available:
-    public class Dialog_DS_Settings : Window {
-        public Dialog_DS_Settings() {
+    public class DialogDSSettings : Window {
+        public DialogDSSettings() {
 			this.forcePause = true;
 			this.doCloseX = true;
             this.doCloseButton = false;
@@ -30,28 +30,22 @@ namespace LWM.DeepStorage
 			this.absorbInputAroundWindow = true;
         }
 
-		public override Vector2 InitialSize
-		{
-			get
-			{
-				return new Vector2(900f, 700f);
-			}
-		}
+		public override Vector2 InitialSize => new Vector2(900f, 700f);
 
         public override void DoWindowContents(Rect inRect)
 		{
             var contentRect = new Rect(0, 0, inRect.width, inRect.height - (CloseButSize.y + 10f)).ContractedBy(10f);
-            bool scrollBarVisible = totalContentHeight > contentRect.height;
-            var scrollViewTotal = new Rect(0f, 0f, contentRect.width - (scrollBarVisible ? ScrollBarWidthMargin : 0), totalContentHeight);
+            var scrollBarVisible = _totalContentHeight > contentRect.height;
+            var scrollViewTotal = new Rect(0f, 0f, contentRect.width - (scrollBarVisible ? ScrollBarWidthMargin : 0), _totalContentHeight);
             Widgets.DrawHighlight(contentRect);
-            Widgets.BeginScrollView(contentRect, ref scrollPosition, scrollViewTotal);
-            float curY = 0f;
-            Rect r=new Rect(0,curY,scrollViewTotal.width, LabelHeight);
+            Widgets.BeginScrollView(contentRect, ref _scrollPosition, scrollViewTotal);
+            var curY = 0f;
+            var r=new Rect(0,curY,scrollViewTotal.width, LabelHeight);
 
-            Widgets.CheckboxLabeled(r, "LWMDSperDSUturnOn".Translate(), ref Settings.allowPerDSUSettings);//TODO
+            Widgets.CheckboxLabeled(r, "LWMDSperDSUturnOn".Translate(), ref Settings._allowPerDsuSettings);//TODO
             TooltipHandler.TipRegion(r, "LWMDSperDSUturnOnDesc".Translate());
             curY+=LabelHeight+1f;
-            if (!Settings.allowPerDSUSettings) {
+            if (!Settings._allowPerDsuSettings) {
                 r=new Rect(5f, curY, scrollViewTotal.width-10f, LabelHeight);
                 Widgets.Label(r, "LWMDSperDSUWarning".Translate());
                 curY+=LabelHeight;
@@ -69,36 +63,41 @@ namespace LWM.DeepStorage
             var bgmouseover=ContentFinder<Texture2D>.Get("UI/Widgets/ButtonBGMouseover", true);
             var bgclick=ContentFinder<Texture2D>.Get("UI/Widgets/ButtonBGClick", true);
             //  note: make own list b/c this can modify what's in the DefDatabase.
-            foreach (ThingDef u in Settings.AllDeepStorageUnits.ToList()) {
+            foreach (var u in Settings.AllDeepStorageUnits.ToList()) {
                 //////////////// Disble button: //////////////////
                 // disabled if it's already been disabled previously
                 //   or if it's slated to be disabled on window close
-                bool isEnabled=!tracker.HasDefaultValueFor(u.defName, "def") &&
-                    (this.unitsToBeDisabled==null || !unitsToBeDisabled.Contains(u));
-                bool wasEnabled = isEnabled;
-                Rect disableRect = new Rect(5f, curY, LabelHeight, LabelHeight);
+                var isEnabled=!_tracker.HasDefaultValueFor(u.defName, "def") &&
+                              (this._unitsToBeDisabled==null || !_unitsToBeDisabled.Contains(u));
+                var wasEnabled = isEnabled;
+                var disableRect = new Rect(5f, curY, LabelHeight, LabelHeight);
                 TooltipHandler.TipRegion(disableRect, "TODO: Add description. But basically, you can disable some units and they won't show up in game.\n\nVERY likely to cause unimportant errors in saved games.");
                 Widgets.Checkbox(disableRect.x, disableRect.y, ref isEnabled, LabelHeight, false, true, null, null);
                 if (!isEnabled && wasEnabled) { // newly disabled
-                    Utils.Warn(Utils.DBF.Settings, "Marking unit for disabling: "+u.defName);
-                    if (unitsToBeDisabled==null) unitsToBeDisabled=new HashSet<ThingDef>();
-                    unitsToBeDisabled.Add(u); // hash sets don't care if it's already there!
+                    Utils.Warn(Utils.Dbf.Settings, "Marking unit for disabling: "+u.defName);
+                    if (_unitsToBeDisabled==null)
+                    {
+                        _unitsToBeDisabled = new HashSet<ThingDef>();
+                    }
+                    _unitsToBeDisabled.Add(u); // hash sets don't care if it's already there!
                 }
                 if (isEnabled && !wasEnabled) { // add back:
-                    Utils.Warn(Utils.DBF.Settings, "Restoring disabled unit: "+u.defName);
-                    if (unitsToBeDisabled !=null &&  unitsToBeDisabled.Contains(u)) {
-                        unitsToBeDisabled.Remove(u);
+                    Utils.Warn(Utils.Dbf.Settings, "Restoring disabled unit: "+u.defName);
+                    if (_unitsToBeDisabled !=null &&  _unitsToBeDisabled.Contains(u)) {
+                        _unitsToBeDisabled.Remove(u);
                     }
-                    if (tracker.HasDefaultValueFor(u.defName, "def")) {
-                        tracker.Remove(u.defName, "def");
+                    if (_tracker.HasDefaultValueFor(u.defName, "def")) {
+                        _tracker.Remove(u.defName, "def");
                     }
                     if (!DefDatabase<ThingDef>.AllDefsListForReading.Contains(u))
-                        ReturnDefToUse(u);
+                    {
+                        DialogDSSettings.ReturnDefToUse(u);
+                    }
                 }
                 //////////////// Select def: //////////////////
                 r=new Rect(10f+LabelHeight, curY, (scrollViewTotal.width)*2/3-12f-LabelHeight, LabelHeight);
                 // Draw button-ish background:
-                Texture2D atlas = bg;
+                var atlas = bg;
 				if (Mouse.IsOver(r))
 				{
 					atlas = bgmouseover;
@@ -112,12 +111,12 @@ namespace LWM.DeepStorage
                 Widgets.Label(r, u.label+" (defName: "+u.defName+")");
                 // button clickiness:
                 if (Widgets.ButtonInvisible(r)) {
-                    Find.WindowStack.Add(new Dialog_DSU_Settings(u));
+                    Find.WindowStack.Add(new DialogDsuSettings(u));
                 }
                 //////////////// Reset button: //////////////////
                 r=new Rect((scrollViewTotal.width)*2/3+2f,curY, (scrollViewTotal.width)/3-7f, LabelHeight);
-                if (tracker.IsChanged(u.defName) && Widgets.ButtonText(r, "ResetBinding".Translate())) {
-                    ResetDSUToDefaults(u.defName);
+                if (_tracker.IsChanged(u.defName) && Widgets.ButtonText(r, "ResetBinding".Translate())) {
+                    DialogDSSettings.ResetDsuToDefaults(u.defName);
                 }
                 curY+=LabelHeight+2f;
             }
@@ -128,23 +127,23 @@ namespace LWM.DeepStorage
             // close button:
             r=new Rect(inRect.width/2-(CloseButSize.x/2), inRect.height-CloseButSize.y-5f, CloseButSize.x, CloseButSize.y);
             if (Widgets.ButtonText(r, "CloseButton".Translate())) {
-                if (unitsToBeDisabled != null && unitsToBeDisabled.Count > 0) {
+                if (_unitsToBeDisabled != null && _unitsToBeDisabled.Count > 0) {
                     //TODO: add out-of-order flag.
-                    foreach (ThingDef d in unitsToBeDisabled) {
-                        Utils.Warn(Utils.DBF.Settings, "Closing Window: Removing def: "+d.defName);
+                    foreach (var d in _unitsToBeDisabled) {
+                        Utils.Warn(Utils.Dbf.Settings, "Closing Window: Removing def: "+d.defName);
                         RemoveDefFromUse(d);
-                        tracker.AddDefaultValue(d.defName, "def", d);
+                        _tracker.AddDefaultValue(d.defName, "def", d);
                     }
-                    unitsToBeDisabled=null;
+                    _unitsToBeDisabled=null;
                 }
                 Close();
             }
             r=new Rect(10f, inRect.height-CloseButSize.y-5f, 2*CloseButSize.x, CloseButSize.y);
-            if (tracker.HasAnyDefaultValues && Widgets.ButtonText(r, "LWM.ResetAllToDefault".Translate())) {
-                Utils.Mess(Utils.DBF.Settings, "Resetting all per-building storage settings to default:");
+            if (_tracker.HasAnyDefaultValues && Widgets.ButtonText(r, "LWM.ResetAllToDefault".Translate())) {
+                Utils.Mess(Utils.Dbf.Settings, "Resetting all per-building storage settings to default:");
                 ResetAllToDefaults();
             }
-            totalContentHeight = curY;
+            _totalContentHeight = curY;
         }
         private static void RemoveDefFromUse(ThingDef def) {
             // Remove from DefDatabase:
@@ -156,18 +155,22 @@ namespace LWM.DeepStorage
                     .Invoke (null, new object [] { def });
 
             DefDatabase<ThingDef>.AllDefsListForReading.Remove(def);
-            ThingDef tester=DefDatabase<ThingDef>.GetNamed(def.defName, false);
-            if (tester != null) Log.Error("Tried to remove "+def.defName+" from DefDatabase, but it's stil there???");
+            var tester=DefDatabase<ThingDef>.GetNamed(def.defName, false);
+            if (tester != null)
+            {
+                Log.Error("Tried to remove "+def.defName+" from DefDatabase, but it's stil there???");
+            }
+
             // remove from architect menu
             if (def.designationCategory != null) {
-                Utils.Mess(Utils.DBF.Settings, "  removing "+def+" from designation category "+def.designationCategory);
+                Utils.Mess(Utils.Dbf.Settings, "  removing "+def+" from designation category "+def.designationCategory);
                 def.designationCategory.AllResolvedDesignators.RemoveAll(x=>((x is Designator_Build) &&
                                                                              ((Designator_Build)x).PlacingDef==def));
             }
             return;
         }
         private static void ReturnDefToUse(ThingDef def) {
-            Utils.Mess(Utils.DBF.Settings, "Returning def "+def+" to use.");
+            Utils.Mess(Utils.Dbf.Settings, "Returning def "+def+" to use.");
             // Def database
             DefDatabase<ThingDef>.AllDefsListForReading.Add(def);
             // restore to architect menu:
@@ -176,64 +179,74 @@ namespace LWM.DeepStorage
             }
         }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private class Dialog_DSU_Settings : Window {
-            public Dialog_DSU_Settings(ThingDef def) {
+        private class DialogDsuSettings : Window {
+            public DialogDsuSettings(ThingDef def) {
                 this.forcePause = true;
                 this.doCloseX = true;
                 this.doCloseButton = false;
                 this.closeOnClickedOutside = true;
                 this.absorbInputAroundWindow = true;
-                this.def=def;
+                this._def=def;
 
-                if (tracker.HasDefaultValueFor(def.defName, "filter")) {
-                    this.useCustomThingFilter=true;
+                if (_tracker.HasDefaultValueFor(def.defName, "filter")) {
+                    this._useCustomThingFilter=true;
                 }
 
                 SetTempVars();
             }
             private void SetTempVars() {
-                tmpLabel=def.label;
-                tmpMaxNumStacks=def.GetCompProperties<Properties>().maxNumberStacks;
-                tmpMaxTotalMass=def.GetCompProperties<Properties>().maxTotalMass;
-                tmpMaxMassStoredItem=def.GetCompProperties<Properties>().maxMassOfStoredItem;
-                tmpShowContents=def.GetCompProperties<Properties>().showContents;
-                tmpStoragePriority=def.building.defaultStorageSettings.Priority;
-                tmpOverlayType=def.GetCompProperties<Properties>().overlayType;
+                _tmpLabel=_def.label;
+                _tmpMaxNumStacks=_def.GetCompProperties<Properties>()._maxNumberStacks;
+                _tmpMaxTotalMass=_def.GetCompProperties<Properties>()._maxTotalMass;
+                _tmpMaxMassStoredItem=_def.GetCompProperties<Properties>()._maxMassOfStoredItem;
+                _tmpShowContents=_def.GetCompProperties<Properties>()._showContents;
+                _tmpStoragePriority=_def.building.defaultStorageSettings.Priority;
+                _tmpOverlayType=_def.GetCompProperties<Properties>()._overlayType;
             }
 
             private void SetTempVarsToDefaults() {
                 SetTempVars();
-                tmpLabel=tracker.GetDefaultValue(def.defName, "label", tmpLabel);
-                tmpMaxNumStacks=tracker.GetDefaultValue(def.defName, "maxNumStacks", tmpMaxNumStacks);
-                tmpMaxTotalMass=tracker.GetDefaultValue(def.defName, "maxTotalMass", tmpMaxTotalMass);
-                tmpMaxMassStoredItem=tracker.GetDefaultValue(def.defName, "maxMassStoredItem", tmpMaxMassStoredItem);
-                tmpShowContents=tracker.GetDefaultValue(def.defName, "showContents", tmpShowContents);
-                tmpStoragePriority=tracker.GetDefaultValue(def.defName, "storagePriority", tmpStoragePriority);
-                tmpOverlayType=tracker.GetDefaultValue(def.defName, "overlayType", tmpOverlayType);
-                useCustomThingFilter=false;
-                customThingFilter=null;
+                _tmpLabel=_tracker.GetDefaultValue(_def.defName, "label", _tmpLabel);
+                _tmpMaxNumStacks=_tracker.GetDefaultValue(_def.defName, "maxNumStacks", _tmpMaxNumStacks);
+                _tmpMaxTotalMass=_tracker.GetDefaultValue(_def.defName, "maxTotalMass", _tmpMaxTotalMass);
+                _tmpMaxMassStoredItem=_tracker.GetDefaultValue(_def.defName, "maxMassStoredItem", _tmpMaxMassStoredItem);
+                _tmpShowContents=_tracker.GetDefaultValue(_def.defName, "showContents", _tmpShowContents);
+                _tmpStoragePriority=_tracker.GetDefaultValue(_def.defName, "storagePriority", _tmpStoragePriority);
+                _tmpOverlayType=_tracker.GetDefaultValue(_def.defName, "overlayType", _tmpOverlayType);
+                _useCustomThingFilter=false;
+                _customThingFilter=null;
             }
             private bool AreTempVarsDefaults() {
-                var cp=def.GetCompProperties<LWM.DeepStorage.Properties>();
-                if (tmpLabel!=def.label) return false;
-                if (tmpMaxMassStoredItem!=cp.maxMassOfStoredItem ||
-                    tmpMaxNumStacks!=cp.maxNumberStacks ||
-                    tmpMaxTotalMass!=cp.maxTotalMass ||
-                    tmpOverlayType!=cp.overlayType ||
-                    tmpShowContents!=cp.showContents
-                    ) return false;
-                if (tmpStoragePriority!=def.building.defaultStorageSettings.Priority) return false;
-                if (useCustomThingFilter) return false;
+                var cp=_def.GetCompProperties<LWM.DeepStorage.Properties>();
+                if (_tmpLabel!=_def.label)
+                {
+                    return false;
+                }
+
+                if (_tmpMaxMassStoredItem!=cp._maxMassOfStoredItem ||
+                    _tmpMaxNumStacks!=cp._maxNumberStacks ||
+                    _tmpMaxTotalMass!=cp._maxTotalMass ||
+                    _tmpOverlayType!=cp._overlayType ||
+                    _tmpShowContents!=cp._showContents
+                   )
+                {
+                    return false;
+                }
+
+                if (_tmpStoragePriority!=_def.building.defaultStorageSettings.Priority)
+                {
+                    return false;
+                }
+
+                if (_useCustomThingFilter)
+                {
+                    return false;
+                }
+
                 return true;
             }
 
-            public override Vector2 InitialSize
-            {
-                get
-                {
-                    return new Vector2(900f, 700f);
-                }
-            }
+            public override Vector2 InitialSize => new Vector2(900f, 700f);
 
             public override void DoWindowContents(Rect inRect) // For a specific DSU
             {
@@ -247,70 +260,70 @@ namespace LWM.DeepStorage
 
                 // First: Set up a ScrollView:
                 // outer window (with room for buttons at bottom:
-                Rect s = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - CloseButSize.y - 5f);
+                var s = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - CloseButSize.y - 5f);
                 // inner window that has entire content:
-                y = y + 200; // this is to ensure the Listing_Standard does not run out of height,
+                _y = _y + 200; // this is to ensure the Listing_Standard does not run out of height,
                 //                and can fully display everything - giving a proper length 'y' at
                 //                its .End() call.
                 //          Worst case scenario: y starts as 0, and the L_S gets to a CurHeight of
                 //            200, and then updates at 400 the next time.  Because of the way RW's
                 //            windows work, this will rapidly converge on a large enough value.
-                Rect inner = new Rect(0, 0, s.width - 20, this.y);
-                Widgets.BeginScrollView(s, ref DSUScrollPosition, inner);
+                var inner = new Rect(0, 0, s.width - 20, this._y);
+                Widgets.BeginScrollView(s, ref _dsuScrollPosition, inner);
                 // We cannot do the scrollview inside the L_S:
                 // l.BeginScrollView(s, ref DSUScrollPosition, ref v); // Does not allow filter UI
                 var l = new Listing_Standard();
                 l.Begin(inner);
-                l.Label(def.label);
+                l.Label(_def.label);
                 l.GapLine();
                 // Much TODO, so wow:
-                tmpLabel=l.TextEntryLabeled("LWMDSpDSUlabel".Translate(), tmpLabel);
+                _tmpLabel=l.TextEntryLabeled("LWMDSpDSUlabel".Translate(), _tmpLabel);
                 string tmpstring=null;
                 l.TextFieldNumericLabeled("LWM_DS_maxNumStacks".Translate().CapitalizeFirst()+" "
-                                          +"LWM_DS_Default".Translate(tracker.GetDefaultValue(def.defName, "maxNumStacks",
-                                                                                              tmpMaxNumStacks)),
-                                          ref tmpMaxNumStacks, ref tmpstring,0);
+                                          +"LWM_DS_Default".Translate(_tracker.GetDefaultValue(_def.defName, "maxNumStacks",
+                                                                                              _tmpMaxNumStacks)),
+                                          ref _tmpMaxNumStacks, ref tmpstring,0);
                 tmpstring=null;
                 l.TextFieldNumericLabeled<float>("LWM_DS_maxTotalMass".Translate().CapitalizeFirst()+" "+
-                                                 "LWM_DS_Default".Translate(tracker.GetDefaultValue(def.defName,
-                                                                            "maxTotalMass", tmpMaxTotalMass).ToString()),
-                                                 ref tmpMaxTotalMass, ref tmpstring,0f);
+                                                 "LWM_DS_Default".Translate(_tracker.GetDefaultValue(_def.defName,
+                                                                            "maxTotalMass", _tmpMaxTotalMass).ToString()),
+                                                 ref _tmpMaxTotalMass, ref tmpstring,0f);
                 tmpstring=null;
                 l.TextFieldNumericLabeled<float>("LWM_DS_maxMassOfStoredItem".Translate().CapitalizeFirst()+" "+
-                                                 "LWM_DS_Default".Translate(tracker.GetDefaultValue(def.defName,
-                                                             "maxMassStoredItem", tmpMaxMassStoredItem).ToString()),
-                                                 ref tmpMaxMassStoredItem, ref tmpstring,0f);
-                l.CheckboxLabeled("LWMDSpDSUshowContents".Translate(), ref tmpShowContents);
+                                                 "LWM_DS_Default".Translate(_tracker.GetDefaultValue(_def.defName,
+                                                             "maxMassStoredItem", _tmpMaxMassStoredItem).ToString()),
+                                                 ref _tmpMaxMassStoredItem, ref tmpstring,0f);
+                l.CheckboxLabeled("LWMDSpDSUshowContents".Translate(), ref _tmpShowContents);
                 l.GapLine();
-                l.EnumRadioButton(ref tmpOverlayType, "LWMDSpDSUoverlay".Translate());
+                l.EnumRadioButton(ref _tmpOverlayType, "LWMDSpDSUoverlay".Translate());
                 l.GapLine();
-                l.EnumRadioButton(ref tmpStoragePriority, "LWMDSpDSUstoragePriority".Translate());
+                l.EnumRadioButton(ref _tmpStoragePriority, "LWMDSpDSUstoragePriority".Translate());
                 l.GapLine();
-                l.CheckboxLabeled("LWMDSpDSUchangeFilterQ".Translate(), ref useCustomThingFilter,
+                l.CheckboxLabeled("LWMDSpDSUchangeFilterQ".Translate(), ref _useCustomThingFilter,
                                   "LWMDSpDSUchangeFilterQDesc".Translate());
-                y = l.CurHeight;
+                _y = l.CurHeight;
                 l.End();
-                if (useCustomThingFilter) {
-                    if (customThingFilter==null) {
-                        customThingFilter=new ThingFilter();
-                        customThingFilter.CopyAllowancesFrom(def.building.fixedStorageSettings.filter);
-                        Utils.Mess(Utils.DBF.Settings,"Created new filter for "+def.defName+": "+customThingFilter);
+                if (_useCustomThingFilter) {
+                    if (_customThingFilter==null) {
+                        _customThingFilter=new ThingFilter();
+                        _customThingFilter.CopyAllowancesFrom(_def.building.fixedStorageSettings.filter);
+                        Utils.Mess(Utils.Dbf.Settings,"Created new filter for "+_def.defName+": "+_customThingFilter);
 //                        Log.Error("Old filter has: "+def.building.fixedStorageSettings.filter.AllowedDefCount);
 //                        Log.Warning("New filter has: "+customThingFilter.AllowedDefCount);
                     }
                     // Since this is outside the L_S, we make our own rectangle and use it:
                     //   Nope: Rect r=l.GetRect(CustomThingFilterHeight); // this fails
-                    Rect r = new Rect(20, y, (inner.width - 40)*3/4, CustomThingFilterHeight);
-                    y += CustomThingFilterHeight;
-                    ThingFilterUI.DoThingFilterConfigWindow(r, thingFilterState, customThingFilter);
+                    var r = new Rect(20, _y, (inner.width - 40)*3/4, CustomThingFilterHeight);
+                    _y += CustomThingFilterHeight;
+                    ThingFilterUI.DoThingFilterConfigWindow(r, _thingFilterState, _customThingFilter);
                 } else { // not using custom thing filter:
-                    if (customThingFilter!=null || tracker.HasDefaultValueFor(this.def.defName, "filter")) {
-                        customThingFilter=null;
-                        if (tracker.HasDefaultValueFor(this.def.defName, "filter")) {
-                            Utils.Mess(Utils.DBF.Settings, "  Removing filter for "+def.defName);
-                            def.building.fixedStorageSettings.filter=(ThingFilter)tracker
-                                .GetDefaultValue<ThingFilter>(def.defName, "filter", null);
-                            tracker.Remove(def.defName, "filter");
+                    if (_customThingFilter!=null || _tracker.HasDefaultValueFor(this._def.defName, "filter")) {
+                        _customThingFilter=null;
+                        if (_tracker.HasDefaultValueFor(this._def.defName, "filter")) {
+                            Utils.Mess(Utils.Dbf.Settings, "  Removing filter for "+_def.defName);
+                            _def.building.fixedStorageSettings.filter=(ThingFilter)_tracker
+                                .GetDefaultValue<ThingFilter>(_def.defName, "filter", null);
+                            _tracker.Remove(_def.defName, "filter");
                         }
                     }
                 }
@@ -321,43 +334,43 @@ namespace LWM.DeepStorage
                 // Cancel button
                 var closeRect = new Rect(inRect.width-CloseButSize.x, inRect.height-CloseButSize.y,CloseButSize.x,CloseButSize.y);
                 if (Widgets.ButtonText(closeRect, "CancelButton".Translate())) {
-                    Utils.Mess(Utils.DBF.Settings, "Cancel button selected - no changes made");
+                    Utils.Mess(Utils.Dbf.Settings, "Cancel button selected - no changes made");
                     Close();
                 }
                 // Accept button - with accompanying logic
                 closeRect = new Rect(inRect.width-(2*CloseButSize.x+5f), inRect.height-CloseButSize.y,CloseButSize.x,CloseButSize.y);
                 if (Widgets.ButtonText(closeRect, "AcceptButton".Translate())) {
-                    LWM.DeepStorage.Properties props=def.GetCompProperties<Properties>();
+                    var props=_def.GetCompProperties<Properties>();
                     GUI.FocusControl(null); // unfocus, so that a focused text field may commit its value
-                    Utils.Warn(Utils.DBF.Settings, "\"Accept\" button selected: changing values for "+def.defName);
-                    tracker.UpdateToNewValue(def.defName, "label", tmpLabel, ref def.label);
-                    tracker.UpdateToNewValue(def.defName,
-                               "maxNumStacks", tmpMaxNumStacks, ref props.maxNumberStacks);
-                    tracker.UpdateToNewValue(def.defName,
-                               "maxTotalMass", tmpMaxTotalMass, ref props.maxTotalMass);
-                    tracker.UpdateToNewValue(def.defName,
-                               "maxMassStoredItem", tmpMaxMassStoredItem, ref props.maxMassOfStoredItem);
-                    tracker.UpdateToNewValue(def.defName,
-                               "showContents", tmpShowContents, ref props.showContents);
-                    tracker.UpdateToNewValue(def.defName,
-                               "overlayType", tmpOverlayType, ref props.overlayType);
-                    StoragePriority tmpSP=def.building.defaultStorageSettings.Priority; // hard to access private field directly
-                    tracker.UpdateToNewValue(def.defName, "storagePriority", tmpStoragePriority, ref tmpSP);
-                    def.building.defaultStorageSettings.Priority=tmpSP;
-                    if (useCustomThingFilter) { // danger ahead - automatically use it, even if stupidly set up
-                        if (!tracker.HasDefaultValueFor(def.defName, "filter")) {
-                            Utils.Mess(Utils.DBF.Settings, "Creating default filter record for item "+def.defName);
-                            tracker.AddDefaultValue(def.defName, "filter", def.building.fixedStorageSettings.filter);
+                    Utils.Warn(Utils.Dbf.Settings, "\"Accept\" button selected: changing values for "+_def.defName);
+                    _tracker.UpdateToNewValue(_def.defName, "label", _tmpLabel, ref _def.label);
+                    _tracker.UpdateToNewValue(_def.defName,
+                               "maxNumStacks", _tmpMaxNumStacks, ref props._maxNumberStacks);
+                    _tracker.UpdateToNewValue(_def.defName,
+                               "maxTotalMass", _tmpMaxTotalMass, ref props._maxTotalMass);
+                    _tracker.UpdateToNewValue(_def.defName,
+                               "maxMassStoredItem", _tmpMaxMassStoredItem, ref props._maxMassOfStoredItem);
+                    _tracker.UpdateToNewValue(_def.defName,
+                               "showContents", _tmpShowContents, ref props._showContents);
+                    _tracker.UpdateToNewValue(_def.defName,
+                               "overlayType", _tmpOverlayType, ref props._overlayType);
+                    var tmpSp=_def.building.defaultStorageSettings.Priority; // hard to access private field directly
+                    _tracker.UpdateToNewValue(_def.defName, "storagePriority", _tmpStoragePriority, ref tmpSp);
+                    _def.building.defaultStorageSettings.Priority=tmpSp;
+                    if (_useCustomThingFilter) { // danger ahead - automatically use it, even if stupidly set up
+                        if (!_tracker.HasDefaultValueFor(_def.defName, "filter")) {
+                            Utils.Mess(Utils.Dbf.Settings, "Creating default filter record for item "+_def.defName);
+                            _tracker.AddDefaultValue(_def.defName, "filter", _def.building.fixedStorageSettings.filter);
                         }
-                        def.building.fixedStorageSettings.filter=customThingFilter;
+                        _def.building.fixedStorageSettings.filter=_customThingFilter;
                     } else {
                         // restore default filter:
-                        if (tracker.HasDefaultValueFor(def.defName, "filter")) {
+                        if (_tracker.HasDefaultValueFor(_def.defName, "filter")) {
                             // we need to remove it
-                            Utils.Mess(Utils.DBF.Settings, "Removing default filter record for item "+def.defName);
-                            def.building.fixedStorageSettings.filter=(ThingFilter)tracker
-                                .GetDefaultValue<ThingFilter>(def.defName, "filter", null);
-                            tracker.Remove(def.defName, "filter");
+                            Utils.Mess(Utils.Dbf.Settings, "Removing default filter record for item "+_def.defName);
+                            _def.building.fixedStorageSettings.filter=(ThingFilter)_tracker
+                                .GetDefaultValue<ThingFilter>(_def.defName, "filter", null);
+                            _tracker.Remove(_def.defName, "filter");
                         }
                     }
                     Close();
@@ -372,125 +385,129 @@ namespace LWM.DeepStorage
             public override void PreOpen() {
                 // Per Dialog_BillsConfig
                 base.PreOpen();
-                thingFilterState.quickSearch.Reset();
+                _thingFilterState.quickSearch.Reset();
             }
 
-            DefChangeTracker tracker = Settings.defTracker;
-            ThingDef def;
-            string tmpLabel;
-            int tmpMaxNumStacks;
-            float tmpMaxTotalMass;
-            float tmpMaxMassStoredItem;
-            bool tmpShowContents;
-            LWM.DeepStorage.GuiOverlayType tmpOverlayType;
-            StoragePriority tmpStoragePriority;
+            private DefChangeTracker _tracker = Settings._defTracker;
+            private ThingDef _def;
+            private string _tmpLabel;
+            private int _tmpMaxNumStacks;
+            private float _tmpMaxTotalMass;
+            private float _tmpMaxMassStoredItem;
+            private bool _tmpShowContents;
+            private LWM.DeepStorage.GuiOverlayType _tmpOverlayType;
+            private StoragePriority _tmpStoragePriority;
 
-            bool useCustomThingFilter=false;
-            ThingFilter customThingFilter=null;
-            ThingFilterUI.UIState thingFilterState = new ThingFilterUI.UIState();
-            Vector2 DSUScrollPosition=new Vector2(0,0);
-            float y=1000f;
-            const float CustomThingFilterHeight=400f;
+            private bool _useCustomThingFilter=false;
+            private ThingFilter _customThingFilter=null;
+            private ThingFilterUI.UIState _thingFilterState = new ThingFilterUI.UIState();
+            private Vector2 _dsuScrollPosition=new Vector2(0,0);
+            private float _y=1000f;
+            private const float CustomThingFilterHeight=400f;
         }
-        private static void ResetDSUToDefaults(string resetDefName) {
+        private static void ResetDsuToDefaults(string resetDefName) {
             object tmpObject;
-            string defName=resetDefName;
+            var defName=resetDefName;
             string prop;
-            bool resetAll=(resetDefName==null || resetDefName=="");
-            while ((resetAll && Settings.defTracker.GetFirstDefaultValue(out defName, out prop, out tmpObject))
-                   || Settings.defTracker.GetFirstDefaultValueFor(defName, out prop, out tmpObject)) {
-                Utils.Mess(Utils.DBF.Settings,"Resetting "+prop+" to default value for "+defName);
+            var resetAll=(resetDefName==null || resetDefName=="");
+            while ((resetAll && Settings._defTracker.GetFirstDefaultValue(out defName, out prop, out tmpObject))
+                   || Settings._defTracker.GetFirstDefaultValueFor(defName, out prop, out tmpObject)) {
+                Utils.Mess(Utils.Dbf.Settings,"Resetting "+prop+" to default value for "+defName);
                 var def=DefDatabase<ThingDef>.GetNamed(defName, false);
                 if (def==null) {
-                    ThingDef tmp = (ThingDef)Settings.defTracker.GetDefaultValue(defName, "def", def);
+                    var tmp = (ThingDef)Settings._defTracker.GetDefaultValue(defName, "def", def);
                     if (tmp!=null) {
                         def=tmp;
                         // We are resetting the def, so we need it back in the DefDatabase!
                         ReturnDefToUse(def);
-                        Settings.defTracker.Remove(defName, "def");
-                        if (prop=="def") continue;
+                        Settings._defTracker.Remove(defName, "def");
+                        if (prop=="def")
+                        {
+                            continue;
+                        }
                     } else {
                         //todo: put this error message it translate
                         Log.Warning("LWM.DeepStorage: Tried to change mod setting for "+defName+" but could not find def.\nClear your settings to remove this error.");
-                        Settings.defTracker.Remove(defName, prop);
+                        Settings._defTracker.Remove(defName, prop);
                         continue;
                     }
                 }
                 if (prop=="label") {
                     def.label=(string)(tmpObject);
                 } else if (prop=="maxNumStacks") {
-                    def.GetCompProperties<Properties>().maxNumberStacks=(int)(tmpObject);
+                    def.GetCompProperties<Properties>()._maxNumberStacks=(int)(tmpObject);
                 } else if (prop=="maxTotalMass") {
-                    def.GetCompProperties<Properties>().maxTotalMass=(float)(tmpObject);
+                    def.GetCompProperties<Properties>()._maxTotalMass=(float)(tmpObject);
                 } else if (prop=="maxMassStoredItem") {
-                    def.GetCompProperties<Properties>().maxMassOfStoredItem=(float)(tmpObject);
+                    def.GetCompProperties<Properties>()._maxMassOfStoredItem=(float)(tmpObject);
                 } else if (prop=="showContents") {
-                    def.GetCompProperties<Properties>().showContents=(bool)(tmpObject);
+                    def.GetCompProperties<Properties>()._showContents=(bool)(tmpObject);
                 } else if (prop=="storagePriority") {
                     def.building.defaultStorageSettings.Priority=(StoragePriority)(tmpObject);
                 } else if (prop=="overlayType") {
-                    def.GetCompProperties<Properties>().overlayType=(LWM.DeepStorage.GuiOverlayType)(tmpObject);
+                    def.GetCompProperties<Properties>()._overlayType=(LWM.DeepStorage.GuiOverlayType)(tmpObject);
                 } else if (prop=="filter") {
                     def.building.fixedStorageSettings.filter=(ThingFilter)(tmpObject);
                 } else if (prop=="def") {
                     // Def was marked for removal but hasn't been removed yet
-                    Utils.Mess(Utils.DBF.Settings, "Removing "+defName+" from list of defs to remove.");
+                    Utils.Mess(Utils.Dbf.Settings, "Removing "+defName+" from list of defs to remove.");
                     ReturnDefToUse(def);
                 } else {
                     Log.Error("LWM.DeepStorage: FAILED TO RESET OPTION TO DEFAULT: "+defName+", "+prop);
                 }
-                Settings.defTracker.Remove(defName, prop);
+                Settings._defTracker.Remove(defName, prop);
             } // end while loop, defSettings.DefTracker didn't have anything else
             // done resetting!
         }
 
-        private static void ResetAllToDefaults() {
-            ResetDSUToDefaults(null);
-        }
+        private static void ResetAllToDefaults() => DialogDSSettings.ResetDsuToDefaults(null);
 
-        public static void ExposeDSUSettings(IEnumerable<ThingDef> units) {
+        public static void ExposeDsuSettings(IEnumerable<ThingDef> units) {
             // note: make our own list in case we modify DefDatabase/etc from here
             if (units==null) { Log.Warning("Passed null units"); return; }
-            if (Settings.defTracker==null) {Log.Error("DefChangeTracker is null"); return;}
-            foreach (ThingDef u in units.ToList()) {
-                Utils.Warn(Utils.DBF.Settings, "Expose DSU Settings: "+u.defName+" ("+Scribe.mode+")");
-                string defName=u.defName;
-                Settings.defTracker.ExposeSetting<string>(defName, "label",ref u.label);
-                Settings.defTracker.ExposeSetting(defName, "maxNumStacks", ref u.GetCompProperties<Properties>().maxNumberStacks);
-                Settings.defTracker.ExposeSetting(defName, "maxTotalMass", ref u.GetCompProperties<Properties>().maxTotalMass);
-                Settings.defTracker.ExposeSetting(defName, "maxMassStoredItem", ref u.GetCompProperties<Properties>().maxMassOfStoredItem);
-                Settings.defTracker.ExposeSetting(defName, "showContents", ref u.GetCompProperties<Properties>().showContents);
-                Settings.defTracker.ExposeSetting(defName, "overlayType", ref u.GetCompProperties<Properties>().overlayType);
-                StoragePriority tmpSP=u.building.defaultStorageSettings.Priority; // hard to access private field directly
-                Settings.defTracker.ExposeSetting<StoragePriority>(defName, "storagePriority", ref tmpSP);
-                u.building.defaultStorageSettings.Priority=tmpSP;
+            if (Settings._defTracker==null) {Log.Error("DefChangeTracker is null"); return;}
+            foreach (var u in units.ToList()) {
+                Utils.Warn(Utils.Dbf.Settings, "Expose DSU Settings: "+u.defName+" ("+Scribe.mode+")");
+                var defName=u.defName;
+                Settings._defTracker.ExposeSetting<string>(defName, "label",ref u.label);
+                Settings._defTracker.ExposeSetting(defName, "maxNumStacks", ref u.GetCompProperties<Properties>()._maxNumberStacks);
+                Settings._defTracker.ExposeSetting(defName, "maxTotalMass", ref u.GetCompProperties<Properties>()._maxTotalMass);
+                Settings._defTracker.ExposeSetting(defName, "maxMassStoredItem", ref u.GetCompProperties<Properties>()._maxMassOfStoredItem);
+                Settings._defTracker.ExposeSetting(defName, "showContents", ref u.GetCompProperties<Properties>()._showContents);
+                Settings._defTracker.ExposeSetting(defName, "overlayType", ref u.GetCompProperties<Properties>()._overlayType);
+                var tmpSp=u.building.defaultStorageSettings.Priority; // hard to access private field directly
+                Settings._defTracker.ExposeSetting<StoragePriority>(defName, "storagePriority", ref tmpSp);
+                u.building.defaultStorageSettings.Priority=tmpSp;
                 // If fixedStorageSettings is null, it's because it can store anything. We don't change that:
                 if (u.building?.fixedStorageSettings != null)
-                    Settings.defTracker.ExposeSettingDeep(defName, "filter", ref u.building.fixedStorageSettings.filter);
+                {
+                    Settings._defTracker.ExposeSettingDeep(defName, "filter", ref u.building.fixedStorageSettings.filter);
+                }
+
                 //Utils.Mess(Utils.DBF.Settings, "  Basics exposed.");
                 //////////////////////// disabling defs //////////////////////////
                 if (Scribe.mode == LoadSaveMode.LoadingVars) {
                     // Check if this unit has been disabled:
-                    bool disabled=false;
+                    var disabled=false;
                     Scribe_Values.Look(ref disabled, "DSU_"+defName+"_disabled", false);
                     if (disabled) {
 //todo                        defaultDSUValues["outOfOrder"]=true;
-                        Utils.Mess(Utils.DBF.Settings, "Startup: disabling unit "+u.defName);
-                        Settings.defTracker.AddDefaultValue(defName, "def", u);
+                        Utils.Mess(Utils.Dbf.Settings, "Startup: disabling unit "+u.defName);
+                        Settings._defTracker.AddDefaultValue(defName, "def", u);
                         RemoveDefFromUse(u);
                     }
                 } else if (Scribe.mode == LoadSaveMode.Saving) {
-                    if (Settings.defTracker.HasDefaultValueFor(defName, "def")) {
-                        bool disabled=true;
+                    if (Settings._defTracker.HasDefaultValueFor(defName, "def")) {
+                        var disabled=true;
                         Scribe_Values.Look(ref disabled, "DSU_"+defName+"_disabled", false);
-                        Utils.Mess(Utils.DBF.Settings, "Saving disabled unit name "+u.defName);
+                        Utils.Mess(Utils.Dbf.Settings, "Saving disabled unit name "+u.defName);
                     }
                 }
             } // end units loop
         }
 
-        private float totalContentHeight=1000f;
-        private Vector2 scrollPosition;
+        private float _totalContentHeight=1000f;
+        private Vector2 _scrollPosition;
 
 		private const float TopAreaHeight = 40f;
 		private const float TopButtonHeight = 35f;
@@ -501,9 +518,9 @@ namespace LWM.DeepStorage
 
         // Actual Logic objects:
         //   list of DSUs to be disabled on window close:
-        HashSet<ThingDef> unitsToBeDisabled=null;
+        private HashSet<ThingDef> _unitsToBeDisabled=null;
         // Helpful for typing:
-        public DefChangeTracker tracker=Settings.defTracker;
+        public DefChangeTracker _tracker=Settings._defTracker;
     }
 
 }

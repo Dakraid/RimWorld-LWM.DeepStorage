@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
+
 using Verse;
 
 namespace LWM.DeepStorage.UnitTest
@@ -30,31 +27,29 @@ namespace LWM.DeepStorage.UnitTest
 
         #endregion
 
-        private static void ReplaceWithOriginalComp() {
+        private static void ReplaceWithOriginalComp() =>
             DefDatabase<ThingDef>.AllDefs
-                .ToList()
-                .ForEach(def => {
-                    CompProperties compProperties =
-                        def.comps.FirstOrDefault(comp => comp.compClass == typeof(CompCachedDeepStorage));
+                                 .ToList()
+                                 .ForEach(def => {
+                                     var compProperties =
+                                         def.comps.FirstOrDefault(comp => comp.compClass == typeof(CompCachedDeepStorage));
 
-                    if (compProperties != null) {
-                        compProperties.compClass = typeof(CompDeepStorage);
-                    }
-                });
-        }
+                                     if (compProperties != null) {
+                                         compProperties.compClass = typeof(CompDeepStorage);
+                                     }
+                                 });
 
-        public static void ReplaceWithCachedComp() {
+        public static void ReplaceWithCachedComp() =>
             DefDatabase<ThingDef>.AllDefs
-                .ToList()
-                .ForEach(def => {
-                    CompProperties compProperties =
-                        def.comps.FirstOrDefault(comp => comp.compClass == typeof(CompDeepStorage));
+                                 .ToList()
+                                 .ForEach(def => {
+                                     var compProperties =
+                                         def.comps.FirstOrDefault(comp => comp.compClass == typeof(CompDeepStorage));
 
-                    if (compProperties != null) {
-                        compProperties.compClass = typeof(CompCachedDeepStorage);
-                        def.tickerType = TickerType.Rare;
-                    }
-                });
-        }
+                                     if (compProperties != null) {
+                                         compProperties.compClass = typeof(CompCachedDeepStorage);
+                                         def.tickerType           = TickerType.Rare;
+                                     }
+                                 });
     }
 }

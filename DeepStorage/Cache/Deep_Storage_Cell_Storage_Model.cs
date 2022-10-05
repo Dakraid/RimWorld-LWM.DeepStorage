@@ -3,11 +3,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text;
-using System.Threading.Tasks;
+
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
+
 using Verse;
 
 namespace LWM.DeepStorage
@@ -19,7 +17,7 @@ namespace LWM.DeepStorage
     /// 2. Whether thing and the storage on the same map.
     /// 3. If a thing is accepted by the Storage setting.
     /// </summary>
-    public class Deep_Storage_Cell_Storage_Model : ICollection<Thing>, IExposable
+    public class DeepStorageCellStorageModel : ICollection<Thing>, IExposable
     {
         private CompCachedDeepStorage _comp;
 
@@ -36,14 +34,12 @@ namespace LWM.DeepStorage
         /// </summary>
         private bool _addReEntry;
 
-        public IntVec3 Cell; 
+        public IntVec3 _cell;
 
-        public Deep_Storage_Cell_Storage_Model() {
+        public DeepStorageCellStorageModel() {
         }
 
-        public Deep_Storage_Cell_Storage_Model(IntVec3 cell, CompCachedDeepStorage comp) {
-            this.Init(cell, comp);
-        }
+        public DeepStorageCellStorageModel(IntVec3 cell, CompCachedDeepStorage comp) => this.Init(cell, comp);
 
         public Dictionary<ThingDef, Dictionary<Thing, float>> ThingCache { get; private set; }
             = new Dictionary<ThingDef, Dictionary<Thing, float>>();
@@ -53,7 +49,7 @@ namespace LWM.DeepStorage
         /// because it determines the amount of items to haul in some hauling jobs.
         /// </summary>
         public Dictionary<Thing, Thing> NonFullThings { get; } =
-            new Dictionary<Thing, Thing>(StackableThing_Comparer.Instance);
+            new Dictionary<Thing, Thing>(StackableThingComparer._instance);
 
         public float TotalWeight { get; private set; } = 0;
 
@@ -65,34 +61,36 @@ namespace LWM.DeepStorage
         public bool IsReadOnly => false;
 
         public void Init(IntVec3 cell, CompCachedDeepStorage comp) {
-            this.Cell = cell;
+            this._cell = cell;
             _comp = comp;
-            _minNumberStacks = _comp.minNumberStacks;
-            _maxNumberStacks = _comp.maxNumberStacks;
-            _limitintTotalFactorForCell = _comp.limitingTotalFactorForCell;
+            _minNumberStacks = _comp.MinNumberStacks;
+            _maxNumberStacks = _comp.MaxNumberStacks;
+            _limitintTotalFactorForCell = _comp._limitingTotalFactorForCell;
         }
 
         public void Add(Thing item) {
-            float unitWeight = GetUnitWeight(item);
+            var unitWeight = GetUnitWeight(item);
             Add(item, unitWeight);
         }
 
         public void Add(Thing item, float unitWeight) {
-            float itemWeight = unitWeight * item.stackCount;
+            var itemWeight = unitWeight * item.stackCount;
             TotalWeight += itemWeight;
 
             AddToNonFull(item);
 
             // Could be despawn when it is processed by AddToNonFull().
             if (!item.Spawned)
+            {
                 return;
+            }
 
             AddToThingCache(item, unitWeight);
             this.Count++;
         }
 
         public bool TryAdd(Thing item) {
-            float unitWeight = item.GetStatValue(StatDefOf.Mass);
+            var unitWeight = item.GetStatValue(StatDefOf.Mass);
             if (_addReEntry || CanAccept(item, unitWeight))
             {
                 Add(item, unitWeight);
@@ -112,34 +110,40 @@ namespace LWM.DeepStorage
 
         public bool Contains(Thing item) {
             if (item is null)
+            {
                 return false;
+            }
 
-            return this.ThingCache.TryGetValue(item.def, out Dictionary<Thing, float> value)
+            return this.ThingCache.TryGetValue(item.def, out var value)
                    && value.ContainsKey(item);
         }
 
-        public void CopyTo(Thing[] array, int arrayIndex) {
+        public void CopyTo(Thing[] array, int arrayIndex) =>
             ThingCache.Values
-                .SelectMany(pair => pair.Keys)
-                .ToList()
-                .CopyTo(array, arrayIndex);
-        }
+                      .SelectMany(pair => pair.Keys)
+                      .ToList()
+                      .CopyTo(array, arrayIndex);
 
-        public IEnumerator<Thing> GetEnumerator() {
-            return ThingCache.Values
-                .SelectMany(pair => pair.Keys)
-                .GetEnumerator();
-        }
+        public IEnumerator<Thing> GetEnumerator() =>
+            ThingCache.Values
+                      .SelectMany(pair => pair.Keys)
+                      .GetEnumerator();
 
         public bool Remove(Thing item) {
             if (item is null)
+            {
                 return false;
+            }
 
-            if (!ThingCache.TryGetValue(item.def, out Dictionary<Thing, float> things))
+            if (!ThingCache.TryGetValue(item.def, out var things))
+            {
                 return false;
-            
-            if (!things.TryGetValue(item, out float weight))
+            }
+
+            if (!things.TryGetValue(item, out var weight))
+            {
                 return false;
+            }
 
             things.Remove(item);
             this.TotalWeight -= weight;
@@ -150,9 +154,7 @@ namespace LWM.DeepStorage
             return true;
         }
 
-        IEnumerator IEnumerable.GetEnumerator() {
-            return GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// Update items in storage.
@@ -165,20 +167,24 @@ namespace LWM.DeepStorage
         /// </summary>
         public void Update(Thing item) {
             // Do not update things that are not already in storage.
-            if (!this.ThingCache.TryGetValue(item.def, out Dictionary<Thing, float> things))
+            if (!this.ThingCache.TryGetValue(item.def, out var things))
+            {
                 return;
+            }
 
             if (!things.ContainsKey(item))
+            {
                 return;
+            }
 
-            float newWeight = item.GetStatValue(StatDefOf.Mass) * item.stackCount;
-            float oldWeight = things[item];
-            float deltaWeight = newWeight - oldWeight;
+            var newWeight = item.GetStatValue(StatDefOf.Mass) * item.stackCount;
+            var oldWeight = things[item];
+            var deltaWeight = newWeight - oldWeight;
 
             TotalWeight += deltaWeight;
             things[item] = newWeight;
 
-            if (this.NonFullThings.TryGetValue(item, out Thing nonFullThing))
+            if (this.NonFullThings.TryGetValue(item, out var nonFullThing))
             {
                 if (item.stackCount == item.def.stackLimit)
                 {
@@ -207,12 +213,14 @@ namespace LWM.DeepStorage
             else
             {
                 if (item.stackCount != item.def.stackLimit)
+                {
                     this.NonFullThings[item] = item;
+                }
             }
         }
 
         public int SpareSpaceOnNonFull(Thing thing) {
-            if (NonFullThings.TryGetValue(thing, out Thing value))
+            if (NonFullThings.TryGetValue(thing, out var value))
             {
                 return thing.def.stackLimit - value.stackCount;
             }
@@ -220,22 +228,22 @@ namespace LWM.DeepStorage
             return 0;
         }
 
-        public bool StackableOnNonFull(Thing thing) {
-            return SpareSpaceOnNonFull(thing) >= thing.stackCount;
-        }
+        public bool StackableOnNonFull(Thing thing) => SpareSpaceOnNonFull(thing) >= thing.stackCount;
 
         public bool CanAccept(Thing thing, float unitWeight) {
-            float thingWeight = thing.stackCount * unitWeight;
-            int thingStacks = Mathf.CeilToInt((float) thing.stackCount / thing.def.stackLimit);
-            int stacksStoredHere = this.Count;
+            var thingWeight = thing.stackCount * unitWeight;
+            var thingStacks = Mathf.CeilToInt((float) thing.stackCount / thing.def.stackLimit);
+            var stacksStoredHere = this.Count;
 
-            bool gTMinStack = stacksStoredHere + thingStacks > _minNumberStacks;
-            bool gTMaxStack = stacksStoredHere + thingStacks > _maxNumberStacks;
-            bool gTCellFactor = _limitintTotalFactorForCell > 0f &&
-                                (thingWeight + this.TotalWeight - _limitintTotalFactorForCell) > 0.01f;
+            var gTMinStack = stacksStoredHere + thingStacks > _minNumberStacks;
+            var gTMaxStack = stacksStoredHere + thingStacks > _maxNumberStacks;
+            var gTCellFactor = _limitintTotalFactorForCell > 0f &&
+                               (thingWeight + this.TotalWeight - _limitintTotalFactorForCell) > 0.01f;
 
             if (!gTMinStack || (!gTCellFactor && !gTMaxStack))
+            {
                 return true;
+            }
 
             return StackableOnNonFull(thing);
         }
@@ -249,7 +257,7 @@ namespace LWM.DeepStorage
             }
 
             Scribe_Collections.Look(ref _serializationList, false, nameof(_serializationList), LookMode.Reference);
-            Scribe_Values.Look(ref Cell, nameof(Cell));
+            Scribe_Values.Look(ref _cell, nameof(DeepStorageCellStorageModel._cell));
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -260,18 +268,16 @@ namespace LWM.DeepStorage
         #endregion
 
 
-        private static float GetUnitWeight(Thing thing) {
-            return thing.GetStatValue(StatDefOf.Mass);
-        }
+        private static float GetUnitWeight(Thing thing) => thing.GetStatValue(StatDefOf.Mass);
 
         private void PostLoadInit(List<Thing> things) {
             this.ThingCache = new Dictionary<ThingDef, Dictionary<Thing, float>>();
-            foreach (Thing thing in things)
+            foreach (var thing in things)
             {
                 if (thing.stackCount != thing.def.stackLimit)
                 {
                     // Trying to find the item in NonFullThings.
-                    if (!this.NonFullThings.TryGetValue(thing, out Thing nonFullThing))
+                    if (!this.NonFullThings.TryGetValue(thing, out var nonFullThing))
                     {
                         // If not present in the cache, add it.
                         this.NonFullThings[thing] = thing;
@@ -290,7 +296,9 @@ namespace LWM.DeepStorage
                             {
                                 // After merging, if it reaches stackLimit, remove it from cache.
                                 if (nonFullThing.stackCount == thing.def.stackLimit)
+                                {
                                     this.NonFullThings.Remove(nonFullThing);
+                                }
                             }
                         }
                         catch (Exception e)
@@ -303,16 +311,18 @@ namespace LWM.DeepStorage
 
                 // thing got absorbed.
                 if (thing.Destroyed)
+                {
                     continue;
+                }
 
                 float weight;
-                if (this.ThingCache.TryGetValue(thing.def, out Dictionary<Thing, float> value))
+                if (this.ThingCache.TryGetValue(thing.def, out var value))
                 {
                     weight = value[thing] = thing.GetStatValue(StatDefOf.Mass) * thing.stackCount;
                 }
                 else
                 {
-                    Dictionary<Thing, float> newCache = new Dictionary<Thing, float>()
+                    var newCache = new Dictionary<Thing, float>()
                     {
                         [thing] = weight = thing.GetStatValue(StatDefOf.Mass) * thing.stackCount,
                     };
@@ -332,7 +342,7 @@ namespace LWM.DeepStorage
         /// <param name="item"> Item to remove. </param>
         /// <remarks> If the add and update operation runs correctly, there will always be only one or zero non-full stack per kind. </remarks>
         private void RemoveFromNonFull(Thing item) {
-            if (NonFullThings.TryGetValue(item, out Thing nonFullThings)
+            if (NonFullThings.TryGetValue(item, out var nonFullThings)
                 && nonFullThings == item) {
                 NonFullThings.Remove(item);
             }
@@ -348,15 +358,17 @@ namespace LWM.DeepStorage
             // 2. Item not in cache.
             // 3. Item in cache.
 
-            ThingDef def = item.def;
-            int defStackLimit = def.stackLimit;
+            var def = item.def;
+            var defStackLimit = def.stackLimit;
 
             // State 1
             if (item.stackCount == defStackLimit)
+            {
                 return;
+            }
 
             // State 2
-            if (!NonFullThings.TryGetValue(item, out Thing value))
+            if (!NonFullThings.TryGetValue(item, out var value))
             {
                 NonFullThings[item] = item;
                 return;
@@ -374,13 +386,13 @@ namespace LWM.DeepStorage
         }
 
         private void AddToThingCache(Thing thing, float unitWeight) {
-            if (ThingCache.TryGetValue(thing.def, out Dictionary<Thing, float> things))
+            if (ThingCache.TryGetValue(thing.def, out var things))
             {
                 things[thing] = thing.stackCount * unitWeight;
             }
             else
             {
-                Dictionary<Thing, float> newCache = new Dictionary<Thing, float>
+                var newCache = new Dictionary<Thing, float>
                 {
                     [thing] = thing.stackCount * unitWeight
                 };
@@ -390,27 +402,29 @@ namespace LWM.DeepStorage
         }
 
         public void SelfCorrection() {
-            bool outOfSync = false;
+            var outOfSync = false;
 
             // A hash set that keeps track of non-full things.
-            HashSet<Thing> nonFullThings = new HashSet<Thing>(StackableThing_Comparer.Instance);
+            var nonFullThings = new HashSet<Thing>(StackableThingComparer._instance);
 
             // Loop through cache.
             foreach (var defThings in this.ThingCache) {
-                ThingDef def = defThings.Key;
-                Dictionary<Thing, float> sameThings = defThings.Value;
+                var def = defThings.Key;
+                var sameThings = defThings.Value;
 
                 // Check sub-category
-                foreach (Thing thing in sameThings.Select(thingWeight => thingWeight.Key)) {
+                foreach (var thing in sameThings.Select(thingWeight => thingWeight.Key)) {
                     if (thing.stackCount == def.stackLimit)
+                    {
                         continue;
+                    }
 
                     if (nonFullThings.Contains(thing)) {
                         // There are two things whose stackCount is not equal to stackLimit
                         outOfSync = true;
-                        Utils.Warn(Utils.DBF.Cache, 
+                        Utils.Warn(Utils.Dbf.Cache,
                             $"{_comp.parent} is out of sync. The culprits are {thing} x {thing.stackCount} and" +
-                            $"{(nonFullThings.TryGetValue(thing, out Thing value) ? value : null)} x {value.stackCount}");
+                            $"{(nonFullThings.TryGetValue(thing, out var value) ? value : null)} x {value.stackCount}");
                         break;
                     }
 
@@ -423,14 +437,16 @@ namespace LWM.DeepStorage
             }
 
             if (!outOfSync)
+            {
                 return;
+            }
 
             this.TotalWeight = this.Count = 0;
             this.NonFullThings.Clear();
 
             foreach (var pair in this.ThingCache) {
-                Dictionary<Thing, float> sameThings = pair.Value;
-                foreach (Thing thing in sameThings.Keys.ToList())
+                var sameThings = pair.Value;
+                foreach (var thing in sameThings.Keys.ToList())
                 {
                     this.TotalWeight += sameThings[thing] = thing.GetStatValue(StatDefOf.Mass) * thing.stackCount;
                     this.Count++;

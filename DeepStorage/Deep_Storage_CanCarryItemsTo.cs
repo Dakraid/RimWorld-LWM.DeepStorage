@@ -5,7 +5,7 @@ using RimWorld;
 using Verse;
 using HarmonyLib;
 
-using static LWM.DeepStorage.Utils.DBF; // debug trace
+using static LWM.DeepStorage.Utils.Dbf; // debug trace
 
 
 /******************************************
@@ -43,11 +43,11 @@ namespace LWM.DeepStorage
      * This was easier.
      **************************************/
     [HarmonyPatch(typeof(RimWorld.StoreUtility), "NoStorageBlockersIn")]
-    class Patch_NoStorageBlockersIn {
-        protected static bool Prefix(IntVec3 c, Map map, Thing thing, ref bool __result) {
+    internal class PatchNoStorageBlockersIn {
+        protected static bool Prefix(IntVec3 c, Map map, Thing thing, ref bool result) {
             Utils.Err(NoStorageBlockerseIn, "Looking for blockers for " + thing + " at " + c);
             // Check if storage location is in an uber-storage building:
-            if (!Utils.GetDeepStorageOnCell(c, map, out CompDeepStorage cds)) {
+            if (!Utils.GetDeepStorageOnCell(c, map, out var cds)) {
                 //                Log.Warning("  ...letting vanilla handle it.");
                 return true; // normal spot, NoStorageBlockersIn() will handle it
             }
@@ -55,8 +55,8 @@ namespace LWM.DeepStorage
 //            __result = false; // NoStorageBlockersIn returns false if there's a blocker
                               // Default to having a blocker unless EVERYTHING is okay
                               //  (We return false from this Patch function to skip original method)
-            __result=cds.StackableAt(thing, c, map);
-            Utils.Warn(NoStorageBlockerseIn, "Final result for "+thing+" at "+c+": "+__result);
+            result=cds.StackableAt(thing, c, map);
+            Utils.Warn(NoStorageBlockerseIn, "Final result for "+thing+" at "+c+": "+result);
             return false;
 #if false
             // If there is a maximum size of items that will fit in the unit, quit:
@@ -146,14 +146,17 @@ namespace LWM.DeepStorage
     //   TODO: Option could include NonHumanlikeOrWildMan OR AnimalOrWildMan
     //   maybe p.RaceProps.Animal or p.RaceProps.HumanLike
     [HarmonyPatch(typeof(StoreUtility), "IsGoodStoreCell")]
-    class Patch_IsGoodStoreCell {
-        public static Intelligence NecessaryIntelligenceToUseDeepStorage=Intelligence.Humanlike;
+    internal class PatchIsGoodStoreCell {
+        public static Intelligence _necessaryIntelligenceToUseDeepStorage=Intelligence.Humanlike;
         // A way to specify some pawns can use Storage no matter what:
-        static System.Func<Pawn,bool> specialTest=null;
+        private static System.Func<Pawn,bool> _specialTest=null;
         // Prepare: Check to see if there are any robot/drone mods - if there are,
         //   prepare special logic to allow them to haul to storage no matter what:
-        static bool Prepare(Harmony instance) {
-            if (!Settings.robotsCanUse || specialTest != null) return true;
+        private static bool Prepare(Harmony instance) {
+            if (!Settings._robotsCanUse || PatchIsGoodStoreCell._specialTest != null)
+            {
+                return true;
+            }
 
             var types = new List<Type>();
 
@@ -197,7 +200,11 @@ namespace LWM.DeepStorage
                 }
             }
 
-            if (types.Count ==0) return true;
+            if (types.Count ==0)
+            {
+                return true;
+            }
+
             // The fun part:
             //   Built a function from IL to test if a pawn is a robot:
             var dm = new DynamicMethod("Check if Pawn is a robot",
@@ -227,18 +234,34 @@ namespace LWM.DeepStorage
             il.Emit(OpCodes.Ldc_I4_1);
             il.Emit(OpCodes.Ret);
 
-            specialTest = (System.Func<Pawn,bool>)dm.CreateDelegate(typeof(System.Func<Pawn,bool>));
+            PatchIsGoodStoreCell._specialTest = (System.Func<Pawn,bool>)dm.CreateDelegate(typeof(System.Func<Pawn,bool>));
             return true; // I have too much to do to look up whether Prepare(...) can be a void, so return true
         }
-        static void Postfix(ref bool __result, IntVec3 c, Map map, Thing t, Pawn carrier) {
-            if (__result == false) return;
-            if (specialTest !=null && specialTest(carrier)) return; // passes specialTest?
-            if (carrier?.RaceProps == null) return;
-            if (carrier.RaceProps.intelligence >= NecessaryIntelligenceToUseDeepStorage)
+
+        private static void Postfix(ref bool result, IntVec3 c, Map map, Thing t, Pawn carrier) {
+            if (result == false)
+            {
+                return;
+            }
+
+            if (PatchIsGoodStoreCell._specialTest !=null && PatchIsGoodStoreCell._specialTest(carrier))
+            {
+                return; // passes specialTest?
+            }
+
+            if (carrier?.RaceProps == null)
+            {
+                return;
+            }
+
+            if (carrier.RaceProps.intelligence >= PatchIsGoodStoreCell._necessaryIntelligenceToUseDeepStorage)
+            {
                 return; // smart enough to use whatever.
+            }
+
             // okay, potentially need to see if we're looking at deep storage after all:
             if (LWM.DeepStorage.Utils.CanStoreMoreThanOneThingAt(map, c, t)) {
-                __result = false;
+                result = false;
             }
             return;
         }

@@ -80,12 +80,12 @@ namespace LWM.DeepStorage
      */
 
     [HarmonyPatch(typeof(SectionLayer_Things), "Regenerate")]
-    public static class PatchDisplay_SectionLayer_Things_Regenerate {
+    public static class PatchDisplaySectionLayerThingsRegenerate {
         // We change thingGrid.ThingsListAt(c) to DisplayThingList(map, c):
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
             var flag=false;
             var code = new List<CodeInstruction>(instructions);
-            int i = 0;
+            var i = 0;
             var lookingForThisFieldCall = HarmonyLib.AccessTools.Field(typeof(Verse.Map), "thingGrid");
             for (;i<code.Count;i++) {
                 if (code[i].opcode != OpCodes.Ldfld || 
@@ -110,18 +110,22 @@ namespace LWM.DeepStorage
             for (;i<code.Count; i++) {
                 yield return code[i];
             }
-            if (!flag) Log.Error("LWM Deep Storage: Haromony Patch for SectionLayer display failed.  This is display-only, the game is still playable.");
+            if (!flag)
+            {
+                Log.Error("LWM Deep Storage: Haromony Patch for SectionLayer display failed.  This is display-only, the game is still playable.");
+            }
+
             yield break;
         }
 
         static public List<Thing> ThingListToDisplay(Map map, IntVec3 loc) {
             CompDeepStorage cds;
             ThingWithComps building;
-            SlotGroup slotGroup=loc.GetSlotGroup(map);
+            var slotGroup=loc.GetSlotGroup(map);
 
             if (slotGroup==null || (building=(slotGroup.parent as ThingWithComps))==null ||
                 (cds=(slotGroup.parent as ThingWithComps).TryGetComp<CompDeepStorage>())==null||
-                cds.showContents)
+                cds.ShowContents)
             {
                 return map.thingGrid.ThingsListAt(loc);
             }
@@ -158,40 +162,46 @@ namespace LWM.DeepStorage
     // Gui Overlay: loaded items' overlays should not display
     // Put DeepStorage at the end of the ThingsList for proper display post-save
     [HarmonyPatch(typeof(Building_Storage), "SpawnSetup")]
-    public static class PatchDisplay_SpawnSetup {
-        public static void Postfix(Building_Storage __instance, Map map) {
+    public static class PatchDisplaySpawnSetup {
+        public static void Postfix(Building_Storage instance, Map map) {
             CompDeepStorage cds;
-            if ((cds = __instance.GetComp<CompDeepStorage>()) == null) return;
-            
-            foreach (IntVec3 cell in __instance.AllSlotCells()) {
-                List<Thing> list = map.thingGrid.ThingsListAt(cell);
-                bool alreadyFoundItemOnTop=false;
-                for (int i=list.Count-1; i>=0; i--) {
-                    Thing thing=list[i];
-                    if (!thing.Spawned || !thing.def.EverStorable(false)) continue; // don't make people walking past be invisible...
+            if ((cds = instance.GetComp<CompDeepStorage>()) == null)
+            {
+                return;
+            }
 
-                    if (cds.cdsProps.overlayType != GuiOverlayType.Normal || !cds.showContents) {
+            foreach (var cell in instance.AllSlotCells()) {
+                var list = map.thingGrid.ThingsListAt(cell);
+                var alreadyFoundItemOnTop=false;
+                for (var i=list.Count-1; i>=0; i--) {
+                    var thing=list[i];
+                    if (!thing.Spawned || !thing.def.EverStorable(false))
+                    {
+                        continue; // don't make people walking past be invisible...
+                    }
+
+                    if (cds.CdsProps._overlayType != GuiOverlayType.Normal || !cds.ShowContents) {
                         // Remove gui overlay - this includes number of stackabe item, quality, etc
                         map.listerThings.ThingsInGroup(ThingRequestGroup.HasGUIOverlay).Remove(thing);
                     }
                     if (thing.def.drawerType != DrawerType.MapMeshOnly) {
                         if (!alreadyFoundItemOnTop) {
-                            Utils.TopThingInDeepStorage.Add(thing);
+                            Utils._topThingInDeepStorage.Add(thing);
                         }
-                        if (!cds.showContents) {
+                        if (!cds.ShowContents) {
                             map.dynamicDrawManager.DeRegisterDrawable(thing);
                         }
                     }
                     alreadyFoundItemOnTop=true;  // it's true now, one way or another!
 
-                    if (!cds.showContents) {
+                    if (!cds.ShowContents) {
                         map.tooltipGiverList.Notify_ThingDespawned(thing); // should this go with guioverlays?
                     }
                     // Don't need to thing.DirtyMapMesh(map); because of course it's dirty on spawn setup ;p
                 } // end cell
                 // Now put the DSU at the top of the ThingsList here:
-                list.Remove(__instance);
-                list.Add(__instance);
+                list.Remove(instance);
+                list.Add(instance);
             }
         }
     }
@@ -201,42 +211,52 @@ namespace LWM.DeepStorage
     // Gui Overlay: added items' overlays should not display
     // Put DeepStorage at the end of the ThingsList for consistant display:
     [HarmonyPatch(typeof(Building_Storage),"Notify_ReceivedThing")]
-    public static class PatchDisplay_Notify_ReceivedThing {
-        public static void Postfix(Building_Storage __instance,Thing newItem) {
+    public static class PatchDisplayNotifyReceivedThing {
+        public static void Postfix(Building_Storage instance,Thing newItem) {
             CompDeepStorage cds;
-            if ((cds = __instance.TryGetComp<CompDeepStorage>()) == null) return;
+            if ((cds = instance.TryGetComp<CompDeepStorage>()) == null)
+            {
+                return;
+            }
 
             /****************** Put DSU at top of list *******************/
             /*  See note 2 at top of file re: display                    */
-            List<Thing> list = newItem.Map.thingGrid.ThingsListAt(newItem.Position);
-            list.Remove(__instance);
-            list.Add(__instance);
+            var list = newItem.Map.thingGrid.ThingsListAt(newItem.Position);
+            list.Remove(instance);
+            list.Add(instance);
 
             /****************** Set display for items correctly *******************/
             /*** Clean up old "what was on top" ***/
-            foreach (Thing t in list) {
-                Utils.TopThingInDeepStorage.Remove(t);
+            foreach (var t in list) {
+                Utils._topThingInDeepStorage.Remove(t);
             }
             
             /*** Complex meshes have a few rules for DeepStorage ***/
             if (newItem.def.drawerType != DrawerType.MapMeshOnly) {
                 //  If they are on top, they should be drawn on top:
-                if (cds.showContents)
-                    Utils.TopThingInDeepStorage.Add(newItem);
+                if (cds.ShowContents)
+                {
+                    Utils._topThingInDeepStorage.Add(newItem);
+                }
                 else // If we are not showing contents, don't draw them:
-                    __instance.Map.dynamicDrawManager.DeRegisterDrawable(newItem);
+                {
+                    instance.Map.dynamicDrawManager.DeRegisterDrawable(newItem);
+                }
             }
 
             /*** Gui overlay - remove if the DSU draws it, or if the item is invisible ***/
-            if (cds.cdsProps.overlayType != GuiOverlayType.Normal || !cds.showContents) {
+            if (cds.CdsProps._overlayType != GuiOverlayType.Normal || !cds.ShowContents) {
                 // Remove gui overlay - this includes number of stackabe item, quality, etc
-                __instance.Map.listerThings.ThingsInGroup(ThingRequestGroup.HasGUIOverlay).Remove(newItem);
+                instance.Map.listerThings.ThingsInGroup(ThingRequestGroup.HasGUIOverlay).Remove(newItem);
             }
 
-            if (!cds.showContents) return; // anything after is for invisible items
+            if (!cds.ShowContents)
+            {
+                return; // anything after is for invisible items
+            }
 
             /*** tool tip, dirt mesh, etc ***/
-            __instance.Map.tooltipGiverList.Notify_ThingDespawned(newItem); // should this go with guioverlays?
+            instance.Map.tooltipGiverList.Notify_ThingDespawned(newItem); // should this go with guioverlays?
             newItem.DirtyMapMesh(newItem.Map); // for items with a map mesh; probably unnecessary?
             // Note: not removing linker here b/c I don't think it's applicable to DS?
         }
@@ -272,24 +292,45 @@ namespace LWM.DeepStorage
     /* We have to make a general check in DeSpawn to see if it was in DeepStorage before it disappears 
      * If so, make sure display is correct */
     [HarmonyPatch(typeof(Verse.Thing), "DeSpawn")]
-    static class Cleanup_For_DeepStorage_Thing_At_DeSpawn {
-        static void Prefix(Thing __instance) {
+    internal static class CleanupForDeepStorageThingAtDeSpawn {
+        private static void Prefix(Thing instance) {
             // I wish I could just do this:
             // Utils.TopThingInDeepStorage.Remove(__instance);
             // But, because I cannot patch Notify_LostThing, I have to do its work here:  >:/
-            if (!Utils.TopThingInDeepStorage.Remove(__instance)) return;
-            if (__instance.Position == IntVec3.Invalid) return; // ???
+            if (!Utils._topThingInDeepStorage.Remove(instance))
+            {
+                return;
+            }
+
+            if (instance.Position == IntVec3.Invalid)
+            {
+                return; // ???
+            }
             // So it was at one point in Deep Storage.  Is it still?
             CompDeepStorage cds;
-            if ((cds=((__instance.Position.GetSlotGroup(__instance.Map)?.parent) as ThingWithComps)?.
-                 TryGetComp<CompDeepStorage>())==null) return;
+            if ((cds=((instance.Position.GetSlotGroup(instance.Map)?.parent) as ThingWithComps)?.
+                 TryGetComp<CompDeepStorage>())==null)
+            {
+                return;
+            }
+
             // Figure out what is on top now:
-            if (!cds.showContents) return;
-            List<Thing> list = __instance.Map.thingGrid.ThingsListAtFast(__instance.Position);
-            for (int i=list.Count-1; i>=0; i--) {
-                if (!list[i].def.EverStorable(false)) continue;
-                if (list[i] == __instance) continue;
-                Utils.TopThingInDeepStorage.Add(list[i]);
+            if (!cds.ShowContents)
+            {
+                return;
+            }
+            var list = instance.Map.thingGrid.ThingsListAtFast(instance.Position);
+            for (var i=list.Count-1; i>=0; i--) {
+                if (!list[i].def.EverStorable(false))
+                {
+                    continue;
+                }
+
+                if (list[i] == instance)
+                {
+                    continue;
+                }
+                Utils._topThingInDeepStorage.Add(list[i]);
                 return;
             }
         }
@@ -297,26 +338,33 @@ namespace LWM.DeepStorage
 
     /*************** Deep Storage DeSpawns (destroyed, minified, etc) *****************/
     [HarmonyPatch(typeof(Verse.Building), "DeSpawn")]
-    public static class Patch_Building_DeSpawn_For_Building_Storage {
+    public static class PatchBuildingDeSpawnForBuildingStorage {
         [HarmonyPriority(Priority.First)] // MUST execute, cannot be postfix,
                                           // as some elements already null (e.g., map)
-        public static void Prefix(Building __instance) {
+        public static void Prefix(Building instance) {
             CompDeepStorage cds;
-            if ((cds = __instance.GetComp<CompDeepStorage>())==null) return;
-            Map map=__instance.Map;
+            if ((cds = instance.GetComp<CompDeepStorage>())==null)
+            {
+                return;
+            }
+            var map=instance.Map;
             if (map == null) {
                 Log.Error("DeepStorage despawning: Map is null; some assets may not display properly: "
-                          +__instance.ToString()); return;
+                          +instance.ToString()); return;
             }
-            ISlotGroupParent DSU = __instance as Building_Storage;
-            foreach (IntVec3 cell in DSU.AllSlotCells()) {
-                List<Thing> list = map.thingGrid.ThingsListAt(cell);
+            ISlotGroupParent dsu = instance as Building_Storage;
+            foreach (var cell in dsu.AllSlotCells()) {
+                var list = map.thingGrid.ThingsListAt(cell);
                 Thing t;
-                for (int i=0; i<list.Count;i++) {
+                for (var i=0; i<list.Count;i++) {
                     t=list[i];
-                    Utils.TopThingInDeepStorage.Remove(t); // just take them all, to be safe
+                    Utils._topThingInDeepStorage.Remove(t); // just take them all, to be safe
                     if (t==null) { Log.Warning("DeepStorage despawning: tried to clean up null object"); continue;}
-                    if (!t.Spawned || !t.def.EverStorable(false)) continue;
+                    if (!t.Spawned || !t.def.EverStorable(false))
+                    {
+                        continue;
+                    }
+
                     if (t.def.drawerType != DrawerType.MapMeshOnly)
                     {   // should be safe to register even if already registered
                         map.dynamicDrawManager.RegisterDrawable(t);
@@ -344,10 +392,10 @@ namespace LWM.DeepStorage
      *  who helped people who had similar which-mesh-is-on-top problems)
      */
     [HarmonyPatch(typeof(Verse.Thing),"get_DrawPos")]
-    static class Ensure_Top_Item_In_DSU_Draws_Correctly {
-        static void Postfix(Thing __instance, ref Vector3 __result) {
-            if (Utils.TopThingInDeepStorage.Contains(__instance)) {
-                __result.y+=0.05f; // The default "altitudes" are around .45 apart, so .05 should be about right.
+    internal static class EnsureTopItemInDsuDrawsCorrectly {
+        private static void Postfix(Thing instance, ref Vector3 result) {
+            if (Utils._topThingInDeepStorage.Contains(instance)) {
+                result.y+=0.05f; // The default "altitudes" are around .45 apart, so .05 should be about right.
                                    //             "altitudes" here are "terrain," "buildings," etc.
             }
         }
@@ -356,51 +404,86 @@ namespace LWM.DeepStorage
     
     /**************** GUI Overlay *****************/
     [HarmonyPatch(typeof(Thing),"DrawGUIOverlay")]
-    static class Add_DSU_GUI_Overlay {
-        static bool Prefix(Thing __instance) {
-            if (Find.CameraDriver.CurrentZoom != CameraZoomRange.Closest) return true; // maybe someone changes this? Who knows.
-            Building_Storage DSU = __instance as Building_Storage;
-            if (DSU == null) return true;
-            CompDeepStorage cds = DSU.GetComp<CompDeepStorage>();
-            if (cds == null) return true;
-            if (cds.cdsProps.overlayType == LWM.DeepStorage.GuiOverlayType.Normal) return true;
-            if (cds.cdsProps.overlayType == GuiOverlayType.None) return false;
+    internal static class AddDsuGUIOverlay {
+        private static bool Prefix(Thing instance) {
+            if (Find.CameraDriver.CurrentZoom != CameraZoomRange.Closest)
+            {
+                return true; // maybe someone changes this? Who knows.
+            }
+            var dsu = instance as Building_Storage;
+            if (dsu == null)
+            {
+                return true;
+            }
+            var cds = dsu.GetComp<CompDeepStorage>();
+            if (cds == null)
+            {
+                return true;
+            }
 
-            List<Thing> things;
-            String s;
-            if (cds.cdsProps.overlayType == GuiOverlayType.CountOfAllStacks) {
-                // maybe Armor Racks, Clothing Racks, def Weapon Lockers etc...
-                things = new List<Thing>();
-                foreach (IntVec3 c in DSU.AllSlotCellsList()) {
-                    things.AddRange(__instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false)));
-                }
+            if (cds.CdsProps._overlayType == LWM.DeepStorage.GuiOverlayType.Normal)
+            {
+                return true;
+            }
 
-                if (things.Count ==0) {
-                    if (cds.cdsProps.showContents) return false;  // If it's empty, player will see!
-                    s="LWM_DS_Empty".Translate();
-                } else if (things.Count ==1)
-                    s=1.ToStringCached(); // Why not s="1";?  You never know, someone may be playing in...
-                else if (AllSameType(things))
-                    s="x"+things.Count.ToStringCached();
-                else
-                    s="[ "+things.Count.ToStringCached()+" ]";
-                GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(__instance,0f),s,GenMapUI.DefaultThingLabelColor);
+            if (cds.CdsProps._overlayType == GuiOverlayType.None)
+            {
                 return false;
             }
 
-            if (cds.cdsProps.overlayType == GuiOverlayType.CountOfStacksPerCell) {
+            List<Thing> things;
+            String s;
+            if (cds.CdsProps._overlayType == GuiOverlayType.CountOfAllStacks) {
+                // maybe Armor Racks, Clothing Racks, def Weapon Lockers etc...
+                things = new List<Thing>();
+                foreach (var c in dsu.AllSlotCellsList()) {
+                    things.AddRange(instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false)));
+                }
+
+                if (things.Count ==0) {
+                    if (cds.CdsProps._showContents)
+                    {
+                        return false; // If it's empty, player will see!
+                    }
+                    s="LWM_DS_Empty".Translate();
+                } else if (things.Count ==1)
+                {
+                    s = 1.ToStringCached(); // Why not s="1";?  You never know, someone may be playing in...
+                }
+                else if (AllSameType(things))
+                {
+                    s = "x"+things.Count.ToStringCached();
+                }
+                else
+                {
+                    s = "[ "+things.Count.ToStringCached()+" ]";
+                }
+                GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(instance,0f),s,GenMapUI.DefaultThingLabelColor);
+                return false;
+            }
+
+            if (cds.CdsProps._overlayType == GuiOverlayType.CountOfStacksPerCell) {
                 // maybe Armor Racks, Clothing Racks?
-                foreach (IntVec3 c in DSU.AllSlotCellsList()) {
-                    things=__instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false));
+                foreach (var c in dsu.AllSlotCellsList()) {
+                    things=instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false));
                     if (things.Count ==0) {
-                        if (cds.cdsProps.showContents) continue; // if it's empty, player will see!
+                        if (cds.CdsProps._showContents)
+                        {
+                            continue; // if it's empty, player will see!
+                        }
                         s="LWM_DS_Empty".Translate();
                     } else if (things.Count ==1)
-                        s=1.ToStringCached(); // ..a language that doesn't use arabic numerals?
+                    {
+                        s = 1.ToStringCached(); // ..a language that doesn't use arabic numerals?
+                    }
                     else if (AllSameType(things))
-                        s="x"+things.Count.ToStringCached();
+                    {
+                        s = "x"+things.Count.ToStringCached();
+                    }
                     else
-                        s="[ "+things.Count.ToStringCached()+" ]";
+                    {
+                        s = "[ "+things.Count.ToStringCached()+" ]";
+                    }
                     var l2=GenMapUI.LabelDrawPosFor(c);
 //                    l2.x+=cds.x;
 //                    l2.y+=cds.y;
@@ -409,52 +492,68 @@ namespace LWM.DeepStorage
                 }
                 return false;
             }
-            if (cds.cdsProps.overlayType == GuiOverlayType.SumOfAllItems) {
+            if (cds.CdsProps._overlayType == GuiOverlayType.SumOfAllItems) {
                 // probably food baskets, skips, etc...
                 things=new List<Thing>();
-                foreach (IntVec3 c in DSU.slotGroup.CellsList){
-                    things.AddRange(__instance.Map.thingGrid.ThingsListAtFast(c)
+                foreach (var c in dsu.slotGroup.CellsList){
+                    things.AddRange(instance.Map.thingGrid.ThingsListAtFast(c)
                                     .FindAll(t=>t.def.EverStorable(false)));
                 }
 
                 if (things.Count ==0) {
-                    if (cds.cdsProps.showContents) return false;  // if it's empty, player will see
+                    if (cds.CdsProps._showContents)
+                    {
+                        return false; // if it's empty, player will see
+                    }
                     s="LWM_DS_Empty".Translate();
                 } else {
-                    int count=things[0].stackCount;
-                    bool allTheSame=true;
-                    for (int i=1; i<things.Count; i++) {
-                        if (things[i].def != things[0].def) allTheSame=false;
+                    var count=things[0].stackCount;
+                    var allTheSame=true;
+                    for (var i=1; i<things.Count; i++) {
+                        if (things[i].def != things[0].def)
+                        {
+                            allTheSame = false;
+                        }
                         count+=things[i].stackCount;
                     }
                     if (allTheSame)
-                        s=count.ToStringCached();
+                    {
+                        s = count.ToStringCached();
+                    }
                     else
-                        s="[ "+count.ToStringCached()+" ]";
+                    {
+                        s = "[ "+count.ToStringCached()+" ]";
+                    }
                 }
-                GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(__instance,0f),s,GenMapUI.DefaultThingLabelColor);
+                GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(instance,0f),s,GenMapUI.DefaultThingLabelColor);
                 return false;
             }
-            if (cds.cdsProps.overlayType == GuiOverlayType.SumOfItemsPerCell) {
+            if (cds.CdsProps._overlayType == GuiOverlayType.SumOfItemsPerCell) {
                 // Big Shelves
-                bool anyItems=false;
-                foreach (IntVec3 c in DSU.AllSlotCellsList()) {
-                    bool itemsWithStackSizeOne=false;
-                    things=__instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false));
+                var anyItems=false;
+                foreach (var c in dsu.AllSlotCellsList()) {
+                    var itemsWithStackSizeOne=false;
+                    things=instance.Map.thingGrid.ThingsListAtFast(c).FindAll(t=>t.def.EverStorable(false));
                     if (things.Count > 0) {
                         anyItems=true;
-                        int count=0;
-                        for (int i=0; i<things.Count; i++) {
+                        var count=0;
+                        for (var i=0; i<things.Count; i++) {
                             // Break logic if there is anything with a stackLimit of 1
                             //   show instead the count of stacks:
                             if (itemsWithStackSizeOne || things[i].def.stackLimit==1) {
                                 itemsWithStackSizeOne=true;
                                 if (things.Count ==1)
-                                    s=1.ToStringCached(); // ..a language that doesn't use arabic numerals?
+                                {
+                                    s = 1.ToStringCached(); // ..a language that doesn't use arabic numerals?
+                                }
                                 else if (AllSameType(things))
-                                    s="x"+things.Count.ToStringCached();
+                                {
+                                    s = "x"+things.Count.ToStringCached();
+                                }
                                 else
-                                    s="[ "+things.Count.ToStringCached()+" ]";
+                                {
+                                    s = "[ "+things.Count.ToStringCached()+" ]";
+                                }
                                 var l=GenMapUI.LabelDrawPosFor(c);
                                 l.y+=10f;
                                 GenMapUI.DrawThingLabel(l,s,GenMapUI.DefaultThingLabelColor);
@@ -464,28 +563,39 @@ namespace LWM.DeepStorage
                             }
                         } // end list of things.
                         if (AllSameType(things))
-                            s=count.ToStringCached();
+                        {
+                            s = count.ToStringCached();
+                        }
                         else
-                            s="[ "+count.ToStringCached()+" ]";
+                        {
+                            s = "[ "+count.ToStringCached()+" ]";
+                        }
                         var l2=GenMapUI.LabelDrawPosFor(c);
                         l2.y+=10f;
                         GenMapUI.DrawThingLabel(l2,s,GenMapUI.DefaultThingLabelColor);
                     } // if count > 0
                     WhyDoesCSharpNotHaveBreakTwo:;
                 } // foreach cell
-                if (!anyItems && !cds.cdsProps.showContents) { // there are no items, but no way to see that.
+                if (!anyItems && !cds.CdsProps._showContents) { // there are no items, but no way to see that.
                     s="LWM_DS_Empty".Translate();
-                    GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(__instance,0f),s,GenMapUI.DefaultThingLabelColor);
+                    GenMapUI.DrawThingLabel(GenMapUI.LabelDrawPosFor(instance,0f),s,GenMapUI.DefaultThingLabelColor);
                 }
                 return false;
             }
-            Log.Warning("LWM DeepStorage: could not find GuiOverlayType of "+cds.cdsProps.overlayType);
+            Log.Warning("LWM DeepStorage: could not find GuiOverlayType of "+cds.CdsProps._overlayType);
             return true;
         }
         private static bool AllSameType(List<Thing> l) {
-            if (l.Count < 2) return true;
-            for (int i=1; i<l.Count;i++) {
-                if (l[i].def != l[0].def) return false;
+            if (l.Count < 2)
+            {
+                return true;
+            }
+
+            for (var i=1; i<l.Count;i++) {
+                if (l[i].def != l[0].def)
+                {
+                    return false;
+                }
             }
             return true;
         }

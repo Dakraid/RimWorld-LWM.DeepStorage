@@ -1,5 +1,5 @@
 ﻿using System;
-using RimWorld; // haha, needs all these "using" but RimWorld
+// haha, needs all these "using" but RimWorld
 using Verse;
 using Verse.AI;
 using HarmonyLib;
@@ -36,16 +36,17 @@ namespace LWM.DeepStorage
      * #DeepMagic #YouHaveBeenWarned
      **************************************/
     [HarmonyPatch]
-    public static class Patch_StartCarryThing_Delegate {
-        public static Type predicateClass;
-        static MethodBase TargetMethod()//The target method is found using the custom logic defined here
+    public static class PatchStartCarryThingDelegate {
+        public static Type _predicateClass;
+
+        private static MethodBase TargetMethod()//The target method is found using the custom logic defined here
         {
             //c__AnonStorey0 is the hidden IL class that is created for the delegate() function
             // created by StartCarryThing.  We need this class later on.
             //In version 1.1, it's c__DisplayClass1_0
-            predicateClass = typeof(Verse.AI.Toils_Haul).GetNestedTypes(HarmonyLib.AccessTools.all)
-               .FirstOrDefault(t => t.FullName.Contains("c__DisplayClass1_0"));
-            if (predicateClass == null) {
+            PatchStartCarryThingDelegate._predicateClass = typeof(Verse.AI.Toils_Haul).GetNestedTypes(HarmonyLib.AccessTools.all)
+                                                                                      .FirstOrDefault(t => t.FullName.Contains("c__DisplayClass1_0"));
+            if (PatchStartCarryThingDelegate._predicateClass == null) {
                 Log.Error("LWM.Deep_Storage: Could not find Verse.AI.Toils_Haul:c__AnonStorey0");
                 return null;
             }
@@ -54,8 +55,8 @@ namespace LWM.DeepStorage
             // Is this matching <>m__0?  Or is it returning the first one, which is what
             //   we want anyway?  Who knows!  But this works.  #DeepMagic
             // Note: v1.0 uses m__; v1.1 uses b__, so b__0
-            var m = predicateClass.GetMethods(AccessTools.all)
-                                 .FirstOrDefault(t => t.Name.Contains("b__0"));
+            var m = PatchStartCarryThingDelegate._predicateClass.GetMethods(AccessTools.all)
+                                                .FirstOrDefault(t => t.Name.Contains("b__0"));
             if (m == null) {
                 Log.Error("LWM.Deep_Storage: Could not find Verse.AI.Toils_Haul:c__AnonStorey0<>m__0");
             }
@@ -79,15 +80,15 @@ namespace LWM.DeepStorage
         //TODO:
         //  Better would be to find where AvailableStackSpace is stored, grab that ldloc and then
         //  the following branch has the logic needed!
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
             var code = new List<CodeInstruction>(instructions);
             // have we passed "StartCarryThing got availableStackSpace "?
-            bool foundCorrectException = false;
+            var foundCorrectException = false;
             // We keep track of where every BrTrue jump goes:
             //    One of them will be where we insert our code:
-            System.Reflection.Emit.Label branchLabel = new Label(); // Ugh.  This just gets thrown away
+            var branchLabel = new Label(); // Ugh.  This just gets thrown away
                                                                     // but I get uninitialized var errors otherwise
-            int i = 0; // we do 2 for loops on the same i
+            var i = 0; // we do 2 for loops on the same i
             for (; i < code.Count - 1; i++) {
                 // version 1.1 uses brtrue_S instead of brtrue.  How rude.
                 if (code[i].opcode == OpCodes.Brtrue||code[i].opcode==OpCodes.Brtrue_S) { // keep track of where Branch on True are going
@@ -112,7 +113,7 @@ namespace LWM.DeepStorage
                     yield return tmp;
                     // pop the delegate() function off the stack to load its "toil" field:
                     yield return new CodeInstruction(OpCodes.Ldfld,
-                          HarmonyLib.AccessTools.Field(predicateClass, "toil"));
+                          HarmonyLib.AccessTools.Field(PatchStartCarryThingDelegate._predicateClass, "toil"));
                     yield return new CodeInstruction(OpCodes.Ldloc_2); // This SHOULD be Thing thing.
                     // yield return new CodeInstruction(OpCodes.Ldloc_S, 4); // This SHOULD be num.
                     yield return new CodeInstruction(OpCodes.Ldloc_3); // this should be the v1.1 num
@@ -146,7 +147,7 @@ namespace LWM.DeepStorage
             yield break;
         }
         // helper variables for cleanup after picking thigns up:
-        public static Thing tmpThing;
+        public static Thing _tmpThing;
         // Helper function to try to give "thing" a stack size of "job.count"
         //   So if a pawn wants to pick up sheep, and thing is a stack of 7 sheep,
         //   but the job size says to pick up 50 sheep...we look for other stacks
@@ -154,9 +155,9 @@ namespace LWM.DeepStorage
         public static void FillThisStackIfAble(Toil toil, Thing thing, int carryCapacity) {
             //Log.Error("FillThisStack with " + thing.ToString() + "("+thing.stackCount+") able to carry " 
             //          + carryCapacity + " of job " + toil.actor.jobs.curJob.count);
-            tmpThing = null;
+            PatchStartCarryThingDelegate._tmpThing = null;
             // We'd like thing to have at least num in our stack to pick up at once:
-            int num = Mathf.Min(toil.actor.carryTracker.AvailableStackSpace(thing.def), toil.actor.jobs.curJob.count);
+            var num = Mathf.Min(toil.actor.carryTracker.AvailableStackSpace(thing.def), toil.actor.jobs.curJob.count);
             if (thing.stackCount >= num) { return; }
             var slotGroup = thing.Map.haulDestinationManager.SlotGroupAt(thing.Position);
             if (slotGroup == null || !(slotGroup?.parent is ThingWithComps) ||
@@ -166,15 +167,15 @@ namespace LWM.DeepStorage
                 //  TODO: an option, perhaps, to avoid this return?
                 return;
             }
-            tmpThing = thing;
+            PatchStartCarryThingDelegate._tmpThing = thing;
             var tmpMap = thing.Map;
             var tmpLoc = thing.Position;
             var thingsHere = tmpMap.thingGrid.ThingsListAt(tmpLoc);
             // Note:  foreach (Thing otherThing in thingsHere) { ... }
             //         throws an exception if a stack disappears...
             //         because the list changes.  Oops.
-            for (int i = 0; i < thingsHere.Count; i++) {
-                Thing otherThing = thingsHere[i];
+            for (var i = 0; i < thingsHere.Count; i++) {
+                var otherThing = thingsHere[i];
                 if (otherThing == thing) { continue; }
                 if (!otherThing.CanStackWith(thing)) { continue; }
                 if (otherThing.stackCount <= num - thing.stackCount) {
@@ -188,10 +189,14 @@ namespace LWM.DeepStorage
                 thing.stackCount = num;
 
                 if (otherThing.Spawned)
+                {
                     otherThing.Map.listerMergeables.Notify_ThingStackChanged(otherThing);
+                }
 
                 if (thing.Spawned)
+                {
                     thing.Map.listerMergeables.Notify_ThingStackChanged(thing);
+                }
 
                 return;
             }
@@ -202,10 +207,10 @@ namespace LWM.DeepStorage
         //   Tidy stacks of 74 sheep, 74 sheep, and 74 sheep into stacks of
         //   75 sheep, 75 sheep, and 72 sheep.
         public static void CleanUpStacks() {
-            if (tmpThing == null) {
+            if (PatchStartCarryThingDelegate._tmpThing == null) {
                 return; // only do this if the pawn in messing around in Deep Storage
             }
-            Utils.TidyStacksOf(tmpThing);
+            Utils.TidyStacksOf(PatchStartCarryThingDelegate._tmpThing);
         } //end CleanUpStacks
     }
     //As an aside, pawns will sometimes still refuse to carry stacks.  This behavior

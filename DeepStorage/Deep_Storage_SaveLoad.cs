@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using RimWorld;
-using Verse;
-using Verse.AI;
-using System.Linq;
+﻿using Verse;
+
 using HarmonyLib;
-using System.Reflection;
-using System.Reflection.Emit; // for OpCodes in Harmony Transpiler
+
+// for OpCodes in Harmony Transpiler
 
 namespace LWM.DeepStorage
 {
@@ -42,17 +38,31 @@ namespace LWM.DeepStorage
     //
     //**********************************************************//
     [HarmonyPatch(typeof(CompressibilityDeciderUtility), "IsSaveCompressible")]
-    class Patch_IsSaveCompressible {
-        static void Postfix(ref bool __result, Thing t)
+    internal class PatchIsSaveCompressible {
+        private static void Postfix(ref bool result, Thing t)
         {
-            if (__result == false) return;
-            if (!t.Spawned) return;
-            var ots=t.Map.thingGrid.ThingsListAt(t.Position);
-            int items=0;
-            foreach (var ot in ots) {
-                if (ot.def.EverHaulable) items++;
+            if (result == false)
+            {
+                return;
             }
-            if (items>1) __result=false;
+
+            if (!t.Spawned)
+            {
+                return;
+            }
+            var ots=t.Map.thingGrid.ThingsListAt(t.Position);
+            var items=0;
+            foreach (var ot in ots) {
+                if (ot.def.EverHaulable)
+                {
+                    items++;
+                }
+            }
+            if (items>1)
+            {
+                result = false;
+            }
+
             return;
         }
     }

@@ -1,25 +1,21 @@
-﻿using System;
-using Verse;
-using HarmonyLib;
-using HugsLib;
+﻿using Verse;
+
 using HugsLib.Settings;
 
 namespace LWM.DeepStorage
 {
-    internal class LWM_Hug : HugsLib.ModBase
+    internal class LwmHug : HugsLib.ModBase
     {
-        public override string ModIdentifier {
-            get { return "LWM_DeepStorage"; }
-        }
+        public override string ModIdentifier => "LWM_DeepStorage";
 
-        #if DEBUG
-        private SettingHandle<bool>[] debugONorOFF = new SettingHandle<bool>[Utils.showDebug.Length];
+    #if DEBUG
+        private SettingHandle<bool>[] _debugONorOff = new SettingHandle<bool>[Utils._showDebug.Length];
         #endif
         public override void DefsLoaded() {
             #if DEBUG
             Log.Message("LWM.DeepStorage:  DefsLoaded via HugsLib():");
-            for (int i=1; i<Utils.showDebug.Length; i++) {
-                debugONorOFF[i]=Settings.GetHandle("turnDebugONorOFF"+(Utils.DBF)i, "Turn ON/OFF debugging: "+(Utils.DBF)i,
+            for (var i=1; i<Utils._showDebug.Length; i++) {
+                _debugONorOff[i]=Settings.GetHandle("turnDebugONorOFF"+(Utils.Dbf)i, "Turn ON/OFF debugging: "+(Utils.Dbf)i,
                                        "Turn ON/OFF all debugging - this is a lot of trace, and only available on debug builds",
                                         false);
             }
@@ -36,8 +32,8 @@ namespace LWM.DeepStorage
         }
 
         public void UpdateDebug() {
-            for (int i=1; i<Utils.showDebug.Length; i++) { // 0 is always true
-                Utils.showDebug[i]=debugONorOFF[i];
+            for (var i=1; i<Utils._showDebug.Length; i++) { // 0 is always true
+                Utils._showDebug[i]=_debugONorOff[i];
             }
         }
         #endif

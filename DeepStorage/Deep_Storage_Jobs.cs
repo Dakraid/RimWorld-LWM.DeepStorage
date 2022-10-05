@@ -9,7 +9,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
 
-using static LWM.DeepStorage.Utils.DBF; // trace utils
+using static LWM.DeepStorage.Utils.Dbf; // trace utils
 
 //BUG/TODO: number to haul will not work correctly for stackable things if a unit has a maximum weight limit.
 // TODO: I should really just skip the whole count logic and grab the number for the job from
@@ -38,7 +38,7 @@ namespace LWM.DeepStorage
      *   }
      **************************************/
     [HarmonyPatch(typeof(Verse.AI.HaulAIUtility), "HaulToCellStorageJob")]
-    class Patch_HaulToCellStorageJob {
+    internal class PatchHaulToCellStorageJob {
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator) {
             // this #if false block prints out the full transpiled IL code
             #if false        /////////////////////////////////////
@@ -62,13 +62,13 @@ namespace LWM.DeepStorage
                                                                 //
         public static IEnumerable<CodeInstruction> XTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator) {
             #endif // Can I even do this? YES!  //////////////////
-            List<CodeInstruction> code=instructions.ToList();
+            var code=instructions.ToList();
             // a function call we need to check against a few times:
             var callThingAt=AccessTools.Method(typeof(ThingGrid), "ThingAt", new Type[] {typeof(IntVec3),typeof(ThingDef)});
             var inDeepStorage=generator.DeclareLocal(typeof(bool)); // new local variable
 
-            bool checkedInDeepStorage=false;
-            for (int i=0;i<code.Count;i++) {
+            var checkedInDeepStorage=false;
+            for (var i=0;i<code.Count;i++) {
                 // Logic to test if we are in Deep Storage:
                 // Add this code to the beginning of the function (right after slotgroup is figured out)
                 if (code[i].opcode==OpCodes.Stloc_1 &&
@@ -114,7 +114,7 @@ namespace LWM.DeepStorage
                     c.labels=code[i].labels;
                     code[i]=new CodeInstruction(OpCodes.Ldarg_0);
                     yield return c;
-                    Label vanillaThingAt = generator.DefineLabel();
+                    var vanillaThingAt = generator.DefineLabel();
                     yield return new CodeInstruction(OpCodes.Brfalse,vanillaThingAt);
                     // 2 things to do:
                     // Put all our NullOrLastThingAt call in...correctly,
@@ -126,7 +126,7 @@ namespace LWM.DeepStorage
                     yield return new CodeInstruction(OpCodes.Ldarg_0);   // p
                     yield return new CodeInstruction(code[i+1]);         // p.Map
                     // follow code for ThingAt(someCell, t.def);
-                    int j=i+3;
+                    var j=i+3;
                     for (; j<code.Count;j++) { // this loads the cell and the def
                         if (code[j].opcode==OpCodes.Callvirt &&
                             (MethodInfo)code[j].operand==callThingAt) {
@@ -143,17 +143,23 @@ namespace LWM.DeepStorage
                         yield return new CodeInstruction(code[j]); // this also stores the result in the proper place
                         //Log.Warning("Just going ahead after ThingAt: " + code[j] + ".  j is " + j);
                         // Fun fact: version 1.1 changed Brfalse to Brfalse_S  :p
-                        if (code[j].opcode==OpCodes.Brfalse || code[j].opcode==OpCodes.Brfalse_S) break;
+                        if (code[j].opcode==OpCodes.Brfalse || code[j].opcode==OpCodes.Brfalse_S)
+                        {
+                            break;
+                        }
                     }
                     // Okay, so it's true.  Now we skip over the original test:
-                    Label backToNormal=generator.DefineLabel();
+                    var backToNormal=generator.DefineLabel();
                     yield return new CodeInstruction(OpCodes.Br, backToNormal);
                     // We now return to our regularly scheduled call (if not inDeepStorage):
                     code[i].labels.Add(vanillaThingAt);
                     // now fast foward thru until we hit that Brfalse command - we need to pick up after that!
                     for (; i<code.Count;i++) {
                         yield return code[i];
-                        if (code[i].opcode==OpCodes.Brfalse || code[i].opcode==OpCodes.Brfalse_S) break;
+                        if (code[i].opcode==OpCodes.Brfalse || code[i].opcode==OpCodes.Brfalse_S)
+                        {
+                            break;
+                        }
                     }
                     i++; // move on past that Brfalse
                     //Log.Error("Just jumped past brFalse, i is " + i);
@@ -180,20 +186,32 @@ namespace LWM.DeepStorage
 
         // TODO: move this logic to DeepStorage.cs
         public static Thing NullOrLastThingAt(Map map, IntVec3 c, ThingDef def) {
-            CompDeepStorage cds=(c.GetSlotGroup(map).parent as ThingWithComps).GetComp<CompDeepStorage>();
+            var cds=(c.GetSlotGroup(map).parent as ThingWithComps).GetComp<CompDeepStorage>();
             var l=map.thingGrid.ThingsListAtFast(c); // we know it's a slotgroup, so it's valid :p
-            var freeSlots=cds.maxNumberStacks;
+            var freeSlots=cds.MaxNumberStacks;
             Utils.Err(HaulToCellStorageJob, "  testing for def "+def+" at "+c+"; "+freeSlots+" slots.");
             Thing lastThing=null;
-            for (int i=0; i<l.Count;i++) {
-                if (!l[i].def.EverStorable(false)) continue;
+            for (var i=0; i<l.Count;i++) {
+                if (!l[i].def.EverStorable(false))
+                {
+                    continue;
+                }
                 freeSlots--;
                 Utils.Mess(HaulToCellStorageJob, "  Checking item "+l[i]+"; now have "+freeSlots+" left.");
-                if (!(l[i].def == def)) continue; // possible problem if defs are same but cannot stack?
-                if (lastThing == null) lastThing=l[i];
+                if (!(l[i].def == def))
+                {
+                    continue; // possible problem if defs are same but cannot stack?
+                }
+
+                if (lastThing == null)
+                {
+                    lastThing = l[i];
+                }
                 else {
                     if (l[i].stackCount <= lastThing.stackCount)
-                        lastThing=l[i];
+                    {
+                        lastThing = l[i];
+                    }
                 }
             }
             if (freeSlots > 0) {
@@ -206,19 +224,19 @@ namespace LWM.DeepStorage
         }
 
         // Use a new logic for CompCachedDeepStorage to get the maximum job.count.
-        public static bool Prefix(Pawn p, Thing t, IntVec3 storeCell, ref Job __result) {
-            if (Utils.GetDeepStorageOnCell(storeCell, p.Map, out CompDeepStorage comp)
+        public static bool Prefix(Pawn p, Thing t, IntVec3 storeCell, ref Job result) {
+            if (Utils.GetDeepStorageOnCell(storeCell, p.Map, out var comp)
                 && comp is CompCachedDeepStorage compCached)
             {
-                int capacity = compCached.CapacityToStoreThingAt(t, p.Map, storeCell);
+                var capacity = compCached.CapacityToStoreThingAt(t, p.Map, storeCell);
                 float carryingCapacity = p.carryTracker.AvailableStackSpace(t.def);
 
-                Job job = JobMaker.MakeJob(JobDefOf.HaulToCell, t, storeCell);
+                var job = JobMaker.MakeJob(JobDefOf.HaulToCell, t, storeCell);
                 job.count = Mathf.Min(capacity, Mathf.FloorToInt(carryingCapacity));
                 job.haulOpportunisticDuplicates = true;
                 job.haulMode = HaulMode.ToCellStorage;
 
-                __result = job;
+                result = job;
                 return false;
             }
 
@@ -228,13 +246,17 @@ namespace LWM.DeepStorage
 #if DEBUG
         public static void LogNum(int line, int num, int count, float statValue, Thing t1, Thing t2) {
             Utils.Warn(HaulToCellStorageJob, "----"+line+": "+num+" vs "+count+" (total max: "+statValue+")");
-            if (t1 != null) Utils.Mess(HaulToCellStorageJob, "        t1 is "+t1.stackCount+" "+t1);
-            if (t2 != null) Utils.Mess(HaulToCellStorageJob, "        t2 is "+t2.stackCount+" "+t2);
+            if (t1 != null)
+            {
+                Utils.Mess(HaulToCellStorageJob, "        t1 is "+t1.stackCount+" "+t1);
+            }
+            if (t2 != null)
+            {
+                Utils.Mess(HaulToCellStorageJob, "        t2 is "+t2.stackCount+" "+t2);
+            }
         }
 
-        public static void Postfix(Job __result) {
-            Utils.Err(HaulToCellStorageJob, "Final Job size is "+__result.count);
-        }
+        public static void Postfix(Job result) => Utils.Err(HaulToCellStorageJob, "Final Job size is "+result.count);
 
         /* Original patch:
          * We patch via prefix by first checking if the slotGroup in question is part of a

@@ -8,9 +8,6 @@ using UnityEngine;
 using Verse;
 
 // RT_Shelves:
-using System.Linq;
-using Verse.AI;
-
 
 namespace LWM.DeepStorage
 {
@@ -26,12 +23,12 @@ namespace LWM.DeepStorage
      */
 
     [HarmonyPatch(typeof(Selector), "HandleMapClicks")]
-    class Patch_HandleMapClicks {
-        static bool Prefix(Selector __instance, List<object> ___selected) {
+    internal class PatchHandleMapClicks {
+        private static bool Prefix(Selector instance, List<object> selected) {
             if (Event.current.type == EventType.MouseDown) {
                 // Right mouse clicked and some item selected:
-                if (Event.current.button == 1 && ___selected.Count == 1 && !(___selected[0] is Pawn)) {
-                    Thing t = ___selected[0] as Thing;
+                if (Event.current.button == 1 && selected.Count == 1 && !(selected[0] is Pawn)) {
+                    var t = selected[0] as Thing;
                     if (t==null) {
                         return true; // Don't know what it was...
                     }
@@ -45,11 +42,11 @@ namespace LWM.DeepStorage
                         return true; // Don't know where the player is looking
                     }
                     // TODO: make this cleaner:
-                    if (Utils.GetDeepStorageOnCell(t.Position, t.Map, out CompDeepStorage comp))
+                    if (Utils.GetDeepStorageOnCell(t.Position, t.Map, out var comp))
                     {
-                        __instance.ClearSelection();
+                        instance.ClearSelection();
                         // Select the Deep Storage Unit:
-                        __instance.Select(comp.parent);
+                        instance.Select(comp.parent);
                         Event.current.Use();
                         return false;
                     }
@@ -82,8 +79,8 @@ namespace LWM.DeepStorage
     //   in our new function SortForDeepStorage.
     //   SortForDeepStorage will use a flag that was set before ThingsUnderMouse was called.
     [HarmonyPatch(typeof(Verse.GenUI),"ThingsUnderMouse")]
-    public static class Patch_GenUI_ThingsUnderMouse {
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+    public static class PatchGenUIThingsUnderMouse {
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
             // First marker we are looking for is
             //   ldftn int32 Verse.GenUI::CompareThingsByDrawAltitude(class Verse.Thing, class Verse.Thing)
             var wrongComparison = HarmonyLib.AccessTools.Method("Verse.GenUI:CompareThingsByDrawAltitude");
@@ -98,7 +95,7 @@ namespace LWM.DeepStorage
 
             var code = new List<CodeInstruction>(instructions);
             var i = 0; // using multiple 'for' loops
-            bool foundMarkerOne=false;
+            var foundMarkerOne=false;
             for (; i < code.Count; i++) {
                 yield return code[i];
                 if (code[i].opcode == OpCodes.Ldftn && (MethodInfo)code[i].operand == wrongComparison) {
@@ -127,21 +124,29 @@ namespace LWM.DeepStorage
 
         /* A flag to get passed to GenUI.ThingsUnderMouse() - make sure to set it *and unset it back to Vanilla* manually */
         /*   (because it's not a real parameter - that's more trouble than I want) */
-        static public DSSort sortForDeepStorage=DSSort.Vanilla;
+        static public DSSort _sortForDeepStorage=DSSort.Vanilla;
 
         // Put DeepStorage at the top of the list:
         static public void SortForDeepStorage(List<Thing> list) {
-            if (sortForDeepStorage==DSSort.Vanilla) return;
-            if (sortForDeepStorage==DSSort.SingleSelect) {
+            if (PatchGenUIThingsUnderMouse._sortForDeepStorage==DSSort.Vanilla)
+            {
+                return;
+            }
+
+            if (PatchGenUIThingsUnderMouse._sortForDeepStorage==DSSort.SingleSelect) {
                 /* Single Select: for RimWorld.Selector's SelectUnderMouse() -
                  *   which selects a single item.
                  * We want any DSU to be on the top of the list so it gets
                  *   selected first!
                  */
-                if (list.Count <2) return; // too few to care
-                for (int i=list.Count-1; i>0; i--) { // don't need to check i=0; if it's a DSU, we're already good
+                if (list.Count <2)
+                {
+                    return; // too few to care
+                }
+
+                for (var i=list.Count-1; i>0; i--) { // don't need to check i=0; if it's a DSU, we're already good
                     if (list[i].TryGetComp<CompDeepStorage>()!=null) {
-                        Thing t=list[i];
+                        var t=list[i];
                         list.RemoveAt(i);
                         list.Insert(0,t);
                         return; // That's all we needed!
@@ -149,7 +154,7 @@ namespace LWM.DeepStorage
                 }
                 return;
             }
-            if (sortForDeepStorage==DSSort.MultiSelect) {
+            if (PatchGenUIThingsUnderMouse._sortForDeepStorage==DSSort.MultiSelect) {
                 /* Multi Select: for RimWorld.Selector's SelectAllMatchingObjectUnderMouseOnScreen() -
                  *   which happens when a user double clicks and selects all matching items on the
                  *   screen.
@@ -161,16 +166,19 @@ namespace LWM.DeepStorage
                  *   of the selectable list.
                  * Kashmar.
                  */
-                if (list.Count <2) return; // too few to care
+                if (list.Count <2)
+                {
+                    return; // too few to care
+                }
                 CompDeepStorage cds;
-                for (int i=list.Count-1; i >=0; i--) {
+                for (var i=list.Count-1; i >=0; i--) {
                     // might as well count down, DSUs should be at the end?
                     if ((cds=list[i].TryGetComp<CompDeepStorage>())!=null) {
                         // Okay, now we have to make the sorting happen.
                         // Find the location cell we are using:
-                        IntVec3 cell = IntVec3.Invalid;
+                        var cell = IntVec3.Invalid;
                         // use the location of an item that is in storage:
-                        for (int j=0; j<list.Count; j++) {
+                        for (var j=0; j<list.Count; j++) {
                             if (list[j].def.EverStorable(false)) {
                                 cell=list[j].Position;
                                 break;
@@ -181,8 +189,8 @@ namespace LWM.DeepStorage
                             //   go with default behavior
                             return;
                         }
-                        List<Thing> thingsList=Find.CurrentMap.thingGrid.ThingsListAt(cell);
-                        for (int k=thingsList.Count-1; k>=0; k--) {
+                        var thingsList=Find.CurrentMap.thingGrid.ThingsListAt(cell);
+                        for (var k=thingsList.Count-1; k>=0; k--) {
                             if (thingsList[k].def.EverStorable(false)) {
                                 if (list.Remove(thingsList[k])) { // found item from ThingsList in OUR list!
                                     list.Insert(0,thingsList[k]);
@@ -201,36 +209,29 @@ namespace LWM.DeepStorage
 
     // Single click should select the Deep Storage unit
     [HarmonyPatch(typeof(RimWorld.Selector), "SelectUnderMouse")]
-    static class Make_Select_Under_Mouse_Use_SortForDeepStorage {
-        static void Prefix() {
-            Patch_GenUI_ThingsUnderMouse.sortForDeepStorage = Patch_GenUI_ThingsUnderMouse.DSSort.SingleSelect;
-        }
-        static void Postfix() {
-            Patch_GenUI_ThingsUnderMouse.sortForDeepStorage = Patch_GenUI_ThingsUnderMouse.DSSort.Vanilla;
-        }
+    internal static class MakeSelectUnderMouseUseSortForDeepStorage {
+        private static void Prefix() => PatchGenUIThingsUnderMouse._sortForDeepStorage = PatchGenUIThingsUnderMouse.DSSort.SingleSelect;
+
+        private static void Postfix() => PatchGenUIThingsUnderMouse._sortForDeepStorage = PatchGenUIThingsUnderMouse.DSSort.Vanilla;
     }
     // Double click should multi-select all of whatever item is on top (similar to how items on shelves behave)
     [HarmonyPatch(typeof(RimWorld.Selector),"SelectAllMatchingObjectUnderMouseOnScreen")]
-    static class Make_DoubleClick_Work {
-        static void Prefix(Selector __instance) {
+    internal static class MakeDoubleClickWork {
+        private static void Prefix(Selector instance) {
             // If the DSU is still selected from the first click of SelectUnderMouse(),
             //   it will get included in the SelectAll...  So we clear the selection - this should be fine in general?
             //   It may affect some weird use cases, but if that ever turns into a problem, I can fix this.
-            __instance.ClearSelection();
-            Patch_GenUI_ThingsUnderMouse.sortForDeepStorage = Patch_GenUI_ThingsUnderMouse.DSSort.MultiSelect;
+            instance.ClearSelection();
+            PatchGenUIThingsUnderMouse._sortForDeepStorage = PatchGenUIThingsUnderMouse.DSSort.MultiSelect;
         }
-        static void Postfix() {
-            Patch_GenUI_ThingsUnderMouse.sortForDeepStorage = Patch_GenUI_ThingsUnderMouse.DSSort.Vanilla;
-        }
+
+        private static void Postfix() => PatchGenUIThingsUnderMouse._sortForDeepStorage = PatchGenUIThingsUnderMouse.DSSort.Vanilla;
     }
 
     // If there are 10 artifacts in a weapons locker, it's nice to be able to tell which one you are about to activate:
     // Add "  (Label for Artifact)" to the right-click label.
     [HarmonyPatch(typeof(RimWorld.CompUsable), "FloatMenuOptionLabel")]
     static public class MakeArtifactsActivateLabelNameArtifact {
-        static void Postfix(ref string __result, CompUsable __instance) {
-            __result=__result+" ("+__instance.parent.LabelCap+")";
-        }
-
+        private static void Postfix(ref string result, CompUsable instance) => result=result+" ("+instance.parent.LabelCap+")";
     }
 }

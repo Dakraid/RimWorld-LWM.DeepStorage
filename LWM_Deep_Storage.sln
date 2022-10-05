@@ -5,14 +5,32 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LWM.DeepStorage", "DeepStor
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
+		Release - Latest|Any CPU = Release - Latest|Any CPU
+		Debug - 1.1|Any CPU = Debug - 1.1|Any CPU
+		Debug - 1.2|Any CPU = Debug - 1.2|Any CPU
+		Debug - 1.3|Any CPU = Debug - 1.3|Any CPU
+		Release - 1.1|Any CPU = Release - 1.1|Any CPU
+		Release - 1.2|Any CPU = Release - 1.2|Any CPU
+		Release - 1.3|Any CPU = Release - 1.3|Any CPU
+		Debug - Latest|Any CPU = Debug - Latest|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - Latest|Any CPU.ActiveCfg = Release - Latest|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - Latest|Any CPU.Build.0 = Release - Latest|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.1|Any CPU.ActiveCfg = Debug - 1.1|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.1|Any CPU.Build.0 = Debug - 1.1|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.2|Any CPU.ActiveCfg = Debug - 1.2|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.2|Any CPU.Build.0 = Debug - 1.2|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.3|Any CPU.ActiveCfg = Debug - 1.3|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - 1.3|Any CPU.Build.0 = Debug - 1.3|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.1|Any CPU.ActiveCfg = Release - 1.1|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.1|Any CPU.Build.0 = Release - 1.1|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.2|Any CPU.ActiveCfg = Release - 1.2|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.2|Any CPU.Build.0 = Release - 1.2|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.3|Any CPU.ActiveCfg = Release - 1.3|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Release - 1.3|Any CPU.Build.0 = Release - 1.3|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - Latest|Any CPU.ActiveCfg = Debug - Latest|Any CPU
+		{A5CA1745-DFF4-4DDE-B237-F0BB3D8B1C27}.Debug - Latest|Any CPU.Build.0 = Debug - Latest|Any CPU
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		Policies = $0

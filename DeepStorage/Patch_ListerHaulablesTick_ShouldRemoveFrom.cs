@@ -1,14 +1,13 @@
-using System;
 using RimWorld;
 using Verse;
-using Verse.AI;
+
 using HarmonyLib;
 using System.Reflection;
 using System.Reflection.Emit; // for OpCodes in Harmony Transpiler
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
-using static LWM.DeepStorage.Utils.DBF; // trace utils
+
+// trace utils
 
 /* ListerHaulables should check if items in DSU are haulable
  * This is important in cases where a user changes what is 
@@ -37,18 +36,16 @@ namespace LWM.DeepStorage
      * Note that it is safe for this patch to be applied more than once.
      */
     [HarmonyPatch(typeof(RimWorld.ListerHaulables), "ListerHaulablesTick")]
-    static class Patch_ListerHaulablesTick {
-        static bool Prefix()
-        {
+    internal static class PatchListerHaulablesTick {
+        private static bool Prefix() =>
             // huge performance boost with negligible side effects
-            return Find.TickManager.TicksGame % 250 == 0;
-        }
+            Find.TickManager.TicksGame % 250 == 0;
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
-            List<CodeInstruction> code=instructions.ToList();
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+            var code=instructions.ToList();
             var check=typeof(ListerHaulables).GetMethod("Check", BindingFlags.NonPublic|BindingFlags.Instance);
-            bool madeChange = false;
-            for (int i=0; i<code.Count; i++) {
+            var madeChange = false;
+            for (var i=0; i<code.Count; i++) {
                     // check both Branch and Branch_Short for the `Break;` command:
                 if ((code[i].opcode!=OpCodes.Br && code[i].opcode!=OpCodes.Br_S) ||
                     code[i-1].opcode!=OpCodes.Call ||
@@ -59,7 +56,11 @@ namespace LWM.DeepStorage
                     madeChange = true;
                 }
             }
-            if (!madeChange) Log.Warning("LWM.DeepStorage: could not patch ListerHaulablesTick()\nThis may be a problem, unless some other hauling/storage mod has patched ListerHaulablesTick()");
+            if (!madeChange)
+            {
+                Log.Warning("LWM.DeepStorage: could not patch ListerHaulablesTick()\nThis may be a problem, unless some other hauling/storage mod has patched ListerHaulablesTick()");
+            }
+
             yield break;
         }
     }
