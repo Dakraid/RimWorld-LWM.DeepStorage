@@ -1,9 +1,13 @@
-﻿using HarmonyLib;
-using RimWorld;
-using Verse;
-
-namespace LWM.DeepStorage
+﻿namespace DeepStorage.Cache
 {
+#region
+    using HarmonyLib;
+
+    using RimWorld;
+
+    using Verse;
+#endregion
+
     [HarmonyPatch(typeof(Building_Storage), nameof(Building_Storage.Notify_LostThing))]
     public class PatchNotifyLostThing
     {

@@ -1,12 +1,6 @@
-﻿using System;  // for delegate(), Type, Func<>() stuff
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using RimWorld;
-using Verse;
-using HarmonyLib;
+﻿// for delegate(), Type, Func<>() stuff
 
-using static LWM.DeepStorage.Utils.Dbf; // debug trace
-
+// debug trace
 
 /******************************************
  * A set of patches to see whether items
@@ -18,12 +12,20 @@ using static LWM.DeepStorage.Utils.Dbf; // debug trace
  * who can carry there (also IsGoodStoreCell)
  */
 
-
-
-
-
-namespace LWM.DeepStorage
+namespace DeepStorage
 {
+#region
+    using HarmonyLib;
+
+    using RimWorld;
+
+    using System;
+    using System.Collections.Generic;
+    using System.Reflection.Emit;
+
+    using Verse;
+#endregion
+
     /****** See also Deep_Storage_Jobs.cs, which patches the
      * HaulToCellStorage Job to get the correct count of how
      * man to carry to Deep Storage
@@ -42,23 +44,28 @@ namespace LWM.DeepStorage
      *   Check maxStacks in a loop.
      * This was easier.
      **************************************/
-    [HarmonyPatch(typeof(RimWorld.StoreUtility), "NoStorageBlockersIn")]
-    internal class PatchNoStorageBlockersIn {
-        protected static bool Prefix(IntVec3 c, Map map, Thing thing, ref bool result) {
-            Utils.Err(NoStorageBlockerseIn, "Looking for blockers for " + thing + " at " + c);
+    [HarmonyPatch(typeof(StoreUtility), "NoStorageBlockersIn")]
+    internal class PatchNoStorageBlockersIn
+    {
+        protected static bool Prefix(IntVec3 c, Map map, Thing thing, ref bool result)
+        {
+            Utils.Err(Utils.Dbf.NoStorageBlockerseIn, "Looking for blockers for " + thing + " at " + c);
+
             // Check if storage location is in an uber-storage building:
-            if (!Utils.GetDeepStorageOnCell(c, map, out var cds)) {
+            if (!Utils.GetDeepStorageOnCell(c, map, out var cds))
+            {
                 //                Log.Warning("  ...letting vanilla handle it.");
                 return true; // normal spot, NoStorageBlockersIn() will handle it
             }
             //TODO: Make this IHoldMultipleThings
-//            __result = false; // NoStorageBlockersIn returns false if there's a blocker
-                              // Default to having a blocker unless EVERYTHING is okay
-                              //  (We return false from this Patch function to skip original method)
-            result=cds.StackableAt(thing, c, map);
-            Utils.Warn(NoStorageBlockerseIn, "Final result for "+thing+" at "+c+": "+result);
+            //            __result = false; // NoStorageBlockersIn returns false if there's a blocker
+            // Default to having a blocker unless EVERYTHING is okay
+            //  (We return false from this Patch function to skip original method)
+            result = cds.StackableAt(thing, c, map);
+            Utils.Warn(Utils.Dbf.NoStorageBlockerseIn, "Final result for " + thing + " at " + c + ": " + result);
+
             return false;
-#if false
+        #if false
             // If there is a maximum size of items that will fit in the unit, quit:
             if (cds.limitingFactorForItem > 0f) {
                 if (thing.GetStatValue(cds.stat) > cds.limitingFactorForItem) {
@@ -71,7 +78,7 @@ namespace LWM.DeepStorage
             // We will usually care how many stacks can fit here:
             var maxStacks = cds.maxNumberStacks;
             // If maxTotalMass is set, we will keep track of how much "room" we have as well:
-            float totalAmountHereSoFar=0f;
+            float totalAmountHereSoFar = 0f;
             if (cds.limitingTotalFactorForCell > 0f) {
                 totalAmountHereSoFar = thing.GetStatValue(cds.stat);
             }
@@ -122,13 +129,9 @@ namespace LWM.DeepStorage
             __result = true; // no blockers after all!
             Utils.Warn(NoStorageBlockerseIn, thing.ToString() + " at " + c.ToString() + ": " + __result);
             return false;
-#endif
+        #endif
         }
     }
-
-
-
-
 
     /******************************************************
      * Pets cannot manage Deep Storage
@@ -140,23 +143,23 @@ namespace LWM.DeepStorage
      * allow it.
      */
 
-
     // TODO: transpile?  faster, surely?
     // TODO: make an option
     //   TODO: Option could include NonHumanlikeOrWildMan OR AnimalOrWildMan
     //   maybe p.RaceProps.Animal or p.RaceProps.HumanLike
     [HarmonyPatch(typeof(StoreUtility), "IsGoodStoreCell")]
-    internal class PatchIsGoodStoreCell {
-        public static Intelligence _necessaryIntelligenceToUseDeepStorage=Intelligence.Humanlike;
+    internal class PatchIsGoodStoreCell
+    {
+        public static Intelligence _necessaryIntelligenceToUseDeepStorage = Intelligence.Humanlike;
+
         // A way to specify some pawns can use Storage no matter what:
-        private static System.Func<Pawn,bool> _specialTest=null;
+        private static Func<Pawn, bool> _specialTest;
+
         // Prepare: Check to see if there are any robot/drone mods - if there are,
         //   prepare special logic to allow them to haul to storage no matter what:
-        private static bool Prepare(Harmony instance) {
-            if (!Settings._robotsCanUse || PatchIsGoodStoreCell._specialTest != null)
-            {
-                return true;
-            }
+        private static bool Prepare(Harmony instance)
+        {
+            if (!Settings._robotsCanUse || PatchIsGoodStoreCell._specialTest != null) { return true; }
 
             var types = new List<Type>();
 
@@ -164,52 +167,57 @@ namespace LWM.DeepStorage
 
             // General procedure to get "close enough" classes:
             //   "NameSpace.ClassName, AssemblyName(=.dllName)"
-            if (ModLister.HasActiveModWithName("Misc. Robots")) {
+            if (ModLister.HasActiveModWithName("Misc. Robots"))
+            {
                 // From Haplo:  From my point of view they are normal drones with a kind of
                 //    robot arm (for hauling) somewhere and a simple (job-specific) AI
                 // Good enough for me!  A robot arm can manipulate things, an any AI that can
                 // handle lifting random objects can probably handle latches.
-                tmp=Type.GetType("AIRobot.X2_AIRobot, AIRobot");
-                if (tmp==null) {
-                    Log.Error("LWM's Deep Storage tried to find the Type 'AIRobot.X2_AIRobot, AIRobot', but failed even tho Misc. Robots is loaded.\n"+
-                              "Please let LWM know.");
-                } else {
+                tmp = Type.GetType("AIRobot.X2_AIRobot, AIRobot");
+
+                if (tmp == null) { Log.Error("LWM's Deep Storage tried to find the Type 'AIRobot.X2_AIRobot, AIRobot', but failed even tho Misc. Robots is loaded.\n" + "Please let LWM know."); }
+                else
+                {
                     Log.Message("LWM: activating compatibility logic for Misc. Robots");
                     types.Add(tmp);
                 }
             }
-            if (ModLister.HasActiveModWithName("Base Robots")) {
-                tmp=Type.GetType("BaseRobot.ArcBaseRobot, BaseRobot");
-                if (tmp==null) {
-                    Log.Error("LWM's Deep Storage tried to find the Type 'BaseRobot.ArcBaseRobot, BaseRobot', but failed even tho Base Robots is loaded.\n"+
-                              "Please let LWM know.");
-                } else {
+
+            if (ModLister.HasActiveModWithName("Base Robots"))
+            {
+                tmp = Type.GetType("BaseRobot.ArcBaseRobot, BaseRobot");
+
+                if (tmp == null) { Log.Error("LWM's Deep Storage tried to find the Type 'BaseRobot.ArcBaseRobot, BaseRobot', but failed even tho Base Robots is loaded.\n" + "Please let LWM know."); }
+                else
+                {
                     Log.Message("LWM: activating compatibility logic for Base Robots");
                     types.Add(tmp);
                 }
             }
-            if (ModLister.HasActiveModWithName("Project RimFactory Revived") ||
-                ModLister.HasActiveModWithName("Project RimFactory Lite")) { // They use the same .dll
-                tmp=Type.GetType("ProjectRimFactory.Drones.Pawn_Drone, ProjectRimFactory");
-                if (tmp==null) {
-                    Log.Error("LWM's Deep Storage tried to find the Type 'ProjectRimFactory.Drones.Pawn_Drone', but failed even tho PRF is loaded.\n"+
-                              "Please let LWM know.");
-                } else {
+
+            if (ModLister.HasActiveModWithName("Project RimFactory Revived") || ModLister.HasActiveModWithName("Project RimFactory Lite"))
+            {
+                // They use the same .dll
+                tmp = Type.GetType("ProjectRimFactory.Drones.Pawn_Drone, ProjectRimFactory");
+
+                if (tmp == null) { Log.Error("LWM's Deep Storage tried to find the Type 'ProjectRimFactory.Drones.Pawn_Drone', but failed even tho PRF is loaded.\n" + "Please let LWM know."); }
+                else
+                {
                     Log.Message("LWM: activating compatibility logic for Project RimFactory");
                     types.Add(tmp);
                 }
             }
 
-            if (types.Count ==0)
-            {
-                return true;
-            }
+            if (types.Count == 0) { return true; }
 
             // The fun part:
             //   Built a function from IL to test if a pawn is a robot:
-            var dm = new DynamicMethod("Check if Pawn is a robot",
-                                       typeof(bool),
-                                       new Type[] {typeof(Pawn)});
+            var dm = new DynamicMethod(
+                "Check if Pawn is a robot", typeof(bool), new[]
+                {
+                    typeof(Pawn)
+                }
+            );
             var il = dm.GetILGenerator();
             // Build from IL:
             //     if p is t1 goto isRobotLabel;
@@ -219,7 +227,9 @@ namespace LWM.DeepStorage
             //    isRobotLabel:
             //     return true;
             var isRobotLabel = il.DefineLabel();
-            foreach (var t in types) {
+
+            foreach (var t in types)
+            {
                 // test (p is t)
                 il.Emit(OpCodes.Ldarg_0); // put pawn p on stack
                 il.Emit(OpCodes.Isinst, t);
@@ -234,25 +244,21 @@ namespace LWM.DeepStorage
             il.Emit(OpCodes.Ldc_I4_1);
             il.Emit(OpCodes.Ret);
 
-            PatchIsGoodStoreCell._specialTest = (System.Func<Pawn,bool>)dm.CreateDelegate(typeof(System.Func<Pawn,bool>));
+            PatchIsGoodStoreCell._specialTest = (Func<Pawn, bool>) dm.CreateDelegate(typeof(Func<Pawn, bool>));
+
             return true; // I have too much to do to look up whether Prepare(...) can be a void, so return true
         }
 
-        private static void Postfix(ref bool result, IntVec3 c, Map map, Thing t, Pawn carrier) {
-            if (result == false)
-            {
-                return;
-            }
+        private static void Postfix(ref bool result, IntVec3 c, Map map, Thing t, Pawn carrier)
+        {
+            if (result == false) { return; }
 
-            if (PatchIsGoodStoreCell._specialTest !=null && PatchIsGoodStoreCell._specialTest(carrier))
+            if (PatchIsGoodStoreCell._specialTest != null && PatchIsGoodStoreCell._specialTest(carrier))
             {
                 return; // passes specialTest?
             }
 
-            if (carrier?.RaceProps == null)
-            {
-                return;
-            }
+            if (carrier?.RaceProps == null) { return; }
 
             if (carrier.RaceProps.intelligence >= PatchIsGoodStoreCell._necessaryIntelligenceToUseDeepStorage)
             {
@@ -260,12 +266,7 @@ namespace LWM.DeepStorage
             }
 
             // okay, potentially need to see if we're looking at deep storage after all:
-            if (LWM.DeepStorage.Utils.CanStoreMoreThanOneThingAt(map, c, t)) {
-                result = false;
-            }
-            return;
+            if (Utils.CanStoreMoreThanOneThingAt(map, c, t)) { result = false; }
         }
     }
-
-
 }

@@ -21,7 +21,7 @@ namespace LWM.DeepStorage
     public static class Patch_LWM_DS_BackCompatibleDefName {
         public static void Postfix(Type defType, string defName, ref string __result) {
             if (defType==typeof(ThingDef)) {
-                if (defName=="BigShelf") __result="LWM_BigShelf";
+                if (defName=="BigShelf") __result = "LWM_BigShelf";
             }
         }
         

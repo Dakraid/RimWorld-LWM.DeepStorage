@@ -1,11 +1,15 @@
-﻿using Verse;
-
-using HarmonyLib;
+﻿
 
 // for OpCodes in Harmony Transpiler
 
-namespace LWM.DeepStorage
+namespace DeepStorage
 {
+#region
+    using HarmonyLib;
+
+    using Verse;
+#endregion
+
     //***********************************************************//
     //                    Saving and Loading
     //
@@ -38,33 +42,22 @@ namespace LWM.DeepStorage
     //
     //**********************************************************//
     [HarmonyPatch(typeof(CompressibilityDeciderUtility), "IsSaveCompressible")]
-    internal class PatchIsSaveCompressible {
+    internal class PatchIsSaveCompressible
+    {
         private static void Postfix(ref bool result, Thing t)
         {
-            if (result == false)
+            if (result == false) { return; }
+
+            if (!t.Spawned) { return; }
+            var ots   = t.Map.thingGrid.ThingsListAt(t.Position);
+            var items = 0;
+
+            foreach (var ot in ots)
             {
-                return;
+                if (ot.def.EverHaulable) { items++; }
             }
 
-            if (!t.Spawned)
-            {
-                return;
-            }
-            var ots=t.Map.thingGrid.ThingsListAt(t.Position);
-            var items=0;
-            foreach (var ot in ots) {
-                if (ot.def.EverHaulable)
-                {
-                    items++;
-                }
-            }
-            if (items>1)
-            {
-                result = false;
-            }
-
-            return;
+            if (items > 1) { result = false; }
         }
     }
-
 }

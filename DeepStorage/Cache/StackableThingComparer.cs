@@ -1,30 +1,23 @@
-﻿using System.Collections.Generic;
-
-using Verse;
-
-namespace LWM.DeepStorage
+﻿namespace DeepStorage.Cache
 {
+#region
+    using System.Collections.Generic;
+
+    using Verse;
+#endregion
+
     public class StackableThingComparer : IEqualityComparer<Thing>
     {
         public static StackableThingComparer _instance = new StackableThingComparer();
 
-        private StackableThingComparer()
-        {
-        }
+        private StackableThingComparer() { }
 
-        #region Implementation of IEqualityComparer<in Thing>
-
+    #region Implementation of IEqualityComparer<in Thing>
         public bool Equals(Thing x, Thing y)
         {
-            if (x == y)
-            {
-                return true;
-            }
+            if (x == y) { return true; }
 
-            if (x == null || y == null)
-            {
-                return false;
-            }
+            if (x == null || y == null) { return false; }
 
             return x.CanStackWith(y);
         }

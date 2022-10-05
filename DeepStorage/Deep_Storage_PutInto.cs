@@ -1,21 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using RimWorld;
-using Verse;
+﻿// for OpCodes in Harmony Transpiler
 
-using HarmonyLib;
-using System.Reflection;
-using System.Reflection.Emit; // for OpCodes in Harmony Transpiler
-using static LWM.DeepStorage.Utils.Dbf;
-
-
-
-
-
-namespace LWM.DeepStorage
+namespace DeepStorage
 {
-    /*  Patch TryPlaceDirect(...) and Spawn(...)  */
+#region
+    using Cache;
 
+    using HarmonyLib;
+
+    using RimWorld;
+
+    using System;
+    using System.Collections.Generic;
+    using System.Reflection;
+    using System.Reflection.Emit;
+
+    using Verse;
+#endregion
+
+    /*  Patch TryPlaceDirect(...) and Spawn(...)  */
 
     /**********************************************************************
      * Verse/GenPlace.cs:  TryPlaceDirect(...)
@@ -45,19 +47,20 @@ namespace LWM.DeepStorage
      * We also patch via postfix to make sure all of the stacks are tidy
      **************************************/
     // TODO: can we traspile this?  No?
-    [HarmonyPatch(typeof(Verse.GenPlace), "TryPlaceDirect")]
-    internal class PatchTryPlaceDirect {
+    [HarmonyPatch(typeof(GenPlace), "TryPlaceDirect")]
+    internal class PatchTryPlaceDirect
+    {
         private static void Prefix(ref Thing state, Thing thing, IntVec3 loc)
         {
             // TryPlaceDirect changes what the variable "thing" points to
             //   We do actually need the original value of "thing":
             //  #HarmonyGotcha
             state = thing;
-            Utils.Err(TryPlaceDirect, "LWM:TryPlaceDirect: going to place " + thing.stackCount + thing + " at " + loc);
-#if false
+            Utils.Err(Utils.Dbf.TryPlaceDirect, "LWM:TryPlaceDirect: going to place " + thing.stackCount + thing + " at " + loc);
+        #if false
             Map map; // please add parameter in Previx() line
             List<Thing> thingList = loc.GetThingList(map);
-            int i=0;
+            int i = 0;
             while (i < thingList.Count)
             {
                 Thing thing3 = thingList[i];
@@ -79,27 +82,31 @@ namespace LWM.DeepStorage
                 }
             }
             Log.Error("...everything passed");
-#endif
+        #endif
         }
 
-        private static void Postfix(ref bool result, Thing state, IntVec3 loc, Map map,
-                                    ref Thing resultingThing, Action<Thing, int> placedAction) {
+        private static void Postfix(ref bool result, Thing state, IntVec3 loc, Map map, ref Thing resultingThing, Action<Thing, int> placedAction)
+        {
             var thing = state;
             // First check if we're dropping off in Deep Storage:
             var slotGroup = loc.GetSlotGroup(map);
 
-            if (!Utils.GetDeepStorageOnCell(loc, map, out var comp)) {
-                Utils.Warn(TryPlaceDirect,
-                    "  (placed " + state + " NOT in Deep Storage: with result " + result + ")");
+            if (!Utils.GetDeepStorageOnCell(loc, map, out var comp))
+            {
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "  (placed " + state + " NOT in Deep Storage: with result " + result + ")");
+
                 return;
             }
 
-            if (comp is CompCachedDeepStorage compCached) {
-                PostfixForCache(ref result, thing, loc, map, ref resultingThing, placedAction, compCached);
+            if (comp is CompCachedDeepStorage compCached)
+            {
+                PatchTryPlaceDirect.PostfixForCache(ref result, thing, loc, map, ref resultingThing, placedAction, compCached);
+
                 return;
             }
 
-            if (resultingThing != null) {
+            if (resultingThing != null)
+            {
                 // Two cases here if resultingThing exists:
                 //   1. There's a new object on the map
                 //        (so resultingThing is the original thing, we don't have anyting to put down)
@@ -108,122 +115,139 @@ namespace LWM.DeepStorage
                 //   (case three - something weird going on possibly involving carrying?)
                 //        (all bets are off anyway >_< )
                 // Probably, the pawn put down what they were carrying, and all is good.
-                Utils.Warn(TryPlaceDirect, "  successfully placed " + resultingThing.stackCount + resultingThing.ToString()+ " (" + result+")");
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "  successfully placed " + resultingThing.stackCount + resultingThing + " (" + result + ")");
                 Utils.TidyStacksOf(resultingThing);
+
                 return;
             }
             // Ok, so we still have something we want to place, and it goes in Deep Storage
             //   (We will still return __result=false if we can't place everything in the desired space.)
 
-            Utils.Err(TryPlaceDirect, "LWM:TryPlaceDirect tried to place " + thing.ToString() + " in " + slotGroup.ToString());
+            Utils.Err(Utils.Dbf.TryPlaceDirect, "LWM:TryPlaceDirect tried to place " + thing + " in " + slotGroup);
 
             // Let's see if there's still room in the Deep Storage area the pawn is using:
-            var list = map.thingGrid.ThingsListAt(loc);
-            var maxNumberStacks = ((ThingWithComps)slotGroup.parent).GetComp<CompDeepStorage>().MaxNumberStacks;
+            var list            = map.thingGrid.ThingsListAt(loc);
+            var maxNumberStacks = ((ThingWithComps) slotGroup.parent).GetComp<CompDeepStorage>().MaxNumberStacks;
             // We know there was at least one thing here, and it either doesn't stack with our thing
             //   or its stack is full.
             // So, we go thru the items that are there
             var thingsHere = 0;
-            for (var i = 0; i < list.Count; i++) {
+
+            for (var i = 0; i < list.Count; i++)
+            {
                 var thing2 = list[i];
-                if (!thing2.def.EverStorable(false)) {
+
+                if (!thing2.def.EverStorable(false))
+                {
                     //not an object we count
                     continue;
                 }
                 thingsHere++;
-                Utils.Warn(TryPlaceDirect, "  Currently there are "+thingsHere+
-                                           " things here, max: "+maxNumberStacks);
-                if (thingsHere==1) {
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "  Currently there are " + thingsHere + " things here, max: " + maxNumberStacks);
+
+                if (thingsHere == 1)
+                {
                     //  (should be safe because 1st haulable stack would already have been
                     //   tested by default vanilla function)
                     continue;
                 }
+
                 //unfortunately, we have to duplicate some of the original code:
-                if (!thing2.CanStackWith(thing)) {
-                    Utils.Warn(TryPlaceDirect, "...ignoring \"other\" stack " + thing2.ToString());
-                    continue;  // am carrying wood, but this is sheep.  Or rock, whatever.
+                if (!thing2.CanStackWith(thing))
+                {
+                    Utils.Warn(Utils.Dbf.TryPlaceDirect, "...ignoring \"other\" stack " + thing2);
+
+                    continue; // am carrying wood, but this is sheep.  Or rock, whatever.
                 }
+
                 // Okay, can stack.
-                if (thing2.stackCount >= thing2.def.stackLimit) {
-                    Utils.Warn(TryPlaceDirect, "...ignoring full stack " + thing2.ToString());
+                if (thing2.stackCount >= thing2.def.stackLimit)
+                {
+                    Utils.Warn(Utils.Dbf.TryPlaceDirect, "...ignoring full stack " + thing2);
+
                     continue; // stack is full.
                 }
                 // Put some down in the non-full stack!
                 var origStackCount = thing.stackCount;
-                if (thing2.TryAbsorbStack(thing, true)) {
+
+                if (thing2.TryAbsorbStack(thing, true))
+                {
                     // the "thing2" stack could hold everything we wanted to put down!
-                    Utils.Warn(TryPlaceDirect, "... Object " + thing2.ToString() + " absorbed ALL of " + thing.ToString());
+                    Utils.Warn(Utils.Dbf.TryPlaceDirect, "... Object " + thing2 + " absorbed ALL of " + thing);
                     resultingThing = thing2;
                     // Okay, I like this notation:  only call if non-null:
                     placedAction?.Invoke(thing2, origStackCount);
                     Utils.TidyStacksOf(thing2);
                     result = true; // Could put down everything!
+
                     return;
                 }
-                Utils.Warn(TryPlaceDirect, "... Object " + thing2.ToString() + " absorbed SOME of " + thing.ToString());
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "... Object " + thing2 + " absorbed SOME of " + thing);
+
                 // Since we tried to put some down in that stack, do we do placedAction?
-                if (placedAction != null && origStackCount != thing.stackCount) {
-                    placedAction(thing2, origStackCount - thing.stackCount);
-                }
+                if (placedAction != null && origStackCount != thing.stackCount) { placedAction(thing2, origStackCount - thing.stackCount); }
                 // ...but there's still more to place, so keep going:
             } // end loop of objects in this location
-            if (thingsHere >= maxNumberStacks) { // Ran out of room in the storage object but still want to put stuff down ;_;
-                Utils.Warn(TryPlaceDirect, "...But ran out of stack space here: all " + maxNumberStacks + " filled");
+
+            if (thingsHere >= maxNumberStacks)
+            {
+                // Ran out of room in the storage object but still want to put stuff down ;_;
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "...But ran out of stack space here: all " + maxNumberStacks + " filled");
                 result = false;
+
                 return; // no need to TidyStacks here - they have to be all full
             }
             // if we reach here, we found an empty space,
             //   so put something down!
-            Utils.Warn(TryPlaceDirect, "...Found empty stack space at " + loc.ToString() +
-                                       ". Trying to create from " + thing.ToString());
+            Utils.Warn(Utils.Dbf.TryPlaceDirect, "...Found empty stack space at " + loc + ". Trying to create from " + thing);
+
             // In some circumstances (e.g., butchering a large animal), a pawn can be putting
             //   down way more than stackLimit of something.  We deal with that scenario here
             //////////////////////// NOTE:  POSSIBLE PROBLEM: ////////////////////
             //   resultingThing is set to only the last thing here - it's possible we miss something
             //   important by placing as much as we can at once:
-            while (thing.stackCount > thing.def.stackLimit) {// put down part of a carried load?
+            while (thing.stackCount > thing.def.stackLimit)
+            {
+                // put down part of a carried load?
                 var thing2 = thing.SplitOff(thing.def.stackLimit);
                 resultingThing = GenSpawn.Spawn(thing2, loc, map);
-                Utils.Warn(TryPlaceDirect, "...put down one full stack ("
-                                           + resultingThing.ToString() + "); " + thing.stackCount + " left");
+                Utils.Warn(Utils.Dbf.TryPlaceDirect, "...put down one full stack (" + resultingThing + "); " + thing.stackCount + " left");
                 placedAction?.Invoke(thing2, thing2.stackCount);
                 thingsHere++;
-                if (thingsHere >= maxNumberStacks) { // Oh dear.  There was still at least SOME left...
-                    Utils.Warn(TryPlaceDirect, "...But ran out of stack space here: all "
-                                               + maxNumberStacks + " filled but still have " + thing.stackCount + " left");
+
+                if (thingsHere >= maxNumberStacks)
+                {
+                    // Oh dear.  There was still at least SOME left...
+                    Utils.Warn(Utils.Dbf.TryPlaceDirect, "...But ran out of stack space here: all " + maxNumberStacks + " filled but still have " + thing.stackCount + " left");
                     result = false; // couldn't put things down
+
                     return; // no need to TidyStacks - they all have to be full
                 }
             }
             // Either Spawn the thing (or Spawn the final part of the thing):
             resultingThing = GenSpawn.Spawn(thing, loc, map);
-            result = true; // nothing unplaced!
+            result         = true; // nothing unplaced!
 
-            Utils.Warn(TryPlaceDirect, "...created " + resultingThing.ToString());
-            placedAction?.Invoke(thing, thing.stackCount);// Okay, I like this notation
+            Utils.Warn(Utils.Dbf.TryPlaceDirect, "...created " + resultingThing);
+            placedAction?.Invoke(thing, thing.stackCount); // Okay, I like this notation
             Utils.TidyStacksOf(resultingThing);
-            return; // with __result=!flag (probably "true");
         } // end TryPlaceDirect's Postfix
 
-        private static void PostfixForCache(ref bool result, Thing thing, IntVec3 loc, Map map,
-            ref Thing resultingThing,
-            Action<Thing, int> placedAction, CompCachedDeepStorage compCached) {
+        private static void PostfixForCache(ref bool result, Thing thing, IntVec3 loc, Map map, ref Thing resultingThing, Action<Thing, int> placedAction, CompCachedDeepStorage compCached)
+        {
             // The only time when result is true is when thing is not split and it is either fully absorbed into another stack
             // or it is placed with GenSpawn.Spawn(). In either case, there is no more work to do.
             // If result is false, it always suggests that there are some stacks left in the initial thing.
-            if (result)
-            {
-                return;
-            }
+            if (result) { return; }
 
-            if (!thing.def.EverStorable(false) || !compCached.StorageSettings.AllowedToAccept(thing))
-            {
-                return;
-            }
+            if (!thing.def.EverStorable(false) || !compCached.StorageSettings.AllowedToAccept(thing)) { return; }
 
-            if (compCached.CapacityAt(thing, loc, map, out var capacity)) {
+            if (compCached.CapacityAt(thing, loc, map, out var capacity))
+            {
                 var stackLimit = thing.def.stackLimit;
-                while (capacity > 0) {
+
+                while (capacity > 0)
+                {
                     // Possible states:
                     // 1. stackLimit > capacity >= stackCount
                     // 2. capacity >= stackLimit >= stackCount
@@ -234,44 +258,44 @@ namespace LWM.DeepStorage
                     // 7. stackLimit = capacity = stackCount
 
                     // The building has only one non-full stack for storage.
-                    if (capacity < stackLimit) {
+                    if (capacity < stackLimit)
+                    {
                         result = compCached.CellStorages.AbsorbWithNonFull(thing, loc, placedAction, ref resultingThing);
+
                         // Absorb whatever it can and returns.
                         break;
                     }
-                    else {
-                        if (thing.stackCount > stackLimit) {
-                            // Works with one stackLimit of thing at a time.
-                            var newThing = thing.SplitOff(stackLimit);
-                            resultingThing = GenSpawn.Spawn(newThing, loc, map);
-                            placedAction?.Invoke(newThing, stackLimit);
-                            capacity -= stackLimit;
-                            continue;
-                        }
-                        else {
-                            // At this state, there are certainly enough room for the storage to take in all stacks,
-                            // given capacity >= stackLimit and thing.stackCount <= stackLimit.
-                            if (thing.stackCount != stackLimit) {
-                                result = compCached.CellStorages.AbsorbWithNonFull(thing, loc, placedAction, ref resultingThing);
-                                if (result)
-                                {
-                                    break;
-                                }
-                            }
 
-                            // NonFull cannot finish the job, so use a empty slot in storage.
-                            resultingThing = GenSpawn.Spawn(thing, loc, map);
-                            result = true;
-                            placedAction?.Invoke(resultingThing, resultingThing.stackCount);
-                            break;
-                        }
+                    if (thing.stackCount > stackLimit)
+                    {
+                        // Works with one stackLimit of thing at a time.
+                        var newThing = thing.SplitOff(stackLimit);
+                        resultingThing = GenSpawn.Spawn(newThing, loc, map);
+                        placedAction?.Invoke(newThing, stackLimit);
+                        capacity -= stackLimit;
+
+                        continue;
                     }
+
+                    // At this state, there are certainly enough room for the storage to take in all stacks,
+                    // given capacity >= stackLimit and thing.stackCount <= stackLimit.
+                    if (thing.stackCount != stackLimit)
+                    {
+                        result = compCached.CellStorages.AbsorbWithNonFull(thing, loc, placedAction, ref resultingThing);
+
+                        if (result) { break; }
+                    }
+
+                    // NonFull cannot finish the job, so use a empty slot in storage.
+                    resultingThing = GenSpawn.Spawn(thing, loc, map);
+                    result         = true;
+                    placedAction?.Invoke(resultingThing, resultingThing.stackCount);
+
+                    break;
                 }
             }
         }
     } // end patching TryPlaceDirect
-
-
 
     /**********************************************************************
      * Verse/GenSpawn.cs:  Spawn(...)
@@ -296,21 +320,21 @@ namespace LWM.DeepStorage
      * (I could probably manage without the Utils function, but this is
      *  much easier in terms of C# -> IL magic)
      **************************************/
-    [HarmonyPatch(typeof(Verse.GenSpawn), "Spawn", new Type[] { typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool) })]
-    internal class PatchGenSpawnSpawn {
-        private static MethodInfo _spawnSetupMethod = typeof(Thing).GetMethod(nameof(Thing.SpawnSetup));
+    [HarmonyPatch(typeof(GenSpawn), "Spawn", typeof(Thing), typeof(IntVec3), typeof(Map), typeof(Rot4), typeof(WipeMode), typeof(bool))]
+    internal class PatchGenSpawnSpawn
+    {
+        private static readonly MethodInfo _spawnSetupMethod = typeof(Thing).GetMethod(nameof(Thing.SpawnSetup));
 
-        private static MethodInfo _stackableAtMethod =
-            typeof(CompCachedDeepStorage).GetMethod(nameof(CompCachedDeepStorage.StackableAt));
+        private static readonly MethodInfo _stackableAtMethod = typeof(CompCachedDeepStorage).GetMethod(nameof(CompCachedDeepStorage.StackableAt));
 
-        private static MethodInfo _getCompCachedMethod =
-            typeof(Utils).GetMethod(nameof(Utils.GetCacheDeepStorageOnCell), BindingFlags.Static | BindingFlags.Public);
+        private static readonly MethodInfo _getCompCachedMethod = typeof(Utils).GetMethod(nameof(Utils.GetCacheDeepStorageOnCell), BindingFlags.Static | BindingFlags.Public);
 
         //        static void Prefix (Thing newThing) {
         //            Log.Warning("Spawn: " + newThing.ToString() + ".  Destroyed? " + newThing.Destroyed);
         //        }
 
-        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator ilGenerator) {
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator ilGenerator)
+        {
             // replace if (newThing.def.category == ThingCategory.Item)
             // with
             //         if (newThing.def.category == ThingCategory.Item &&
@@ -326,55 +350,79 @@ namespace LWM.DeepStorage
             //  and then add a second check for CanStoreMoreTHanOneThingAt, also jumping to IL0229
             //  if we fail(pass?).
             var code = new List<CodeInstruction>(instructions);
-            var i = 0; // using two for loops
-            for (; i < code.Count; i++) {
+            var i    = 0; // using two for loops
+
+            for (; i < code.Count; i++)
+            {
                 yield return code[i];
-                if (code[i].opcode == OpCodes.Ldarg_0) { // thing
-                    if (code[i + 1]?.opcode == OpCodes.Ldfld && // thing.def
-                        (FieldInfo)code[i + 1]?.operand == typeof(Verse.Thing).GetField("def")) {
+
+                if (code[i].opcode == OpCodes.Ldarg_0)
+                {
+                    // thing
+                    if (code[i + 1]?.opcode == OpCodes.Ldfld
+                        && // thing.def
+                        (FieldInfo) code[i + 1]?.operand == typeof(Thing).GetField("def"))
+                    {
                         i++;
+
                         yield return code[i];
-                        if (code[i + 1]?.opcode == OpCodes.Ldfld && //thing.def.category!
-                            (FieldInfo)code[i + 1]?.operand == typeof(Verse.ThingDef).GetField("category")) {
+
+                        if (code[i + 1]?.opcode == OpCodes.Ldfld
+                            && //thing.def.category!
+                            (FieldInfo) code[i + 1]?.operand == typeof(ThingDef).GetField("category"))
+                        {
                             i++;
+
                             //
                             yield return code[i++]; // the category
                             yield return code[i++]; // ldc.i4.2  ("item" category)
                             // i now points to the branch operation; we need the label
-                            System.Reflection.Emit.Label branchLabel;
-                            branchLabel = (Label)code[i].operand;
+                            Label branchLabel;
+                            branchLabel = (Label) code[i].operand;
+
                             yield return code[i++]; // branch if not equal to branchLabel
                             CodeInstruction c;
                             // if (respawningAfterLoad) jump...
                             c = new CodeInstruction(OpCodes.Ldarg_S, 5); // 5 is respawningAfterLoad
+
                             yield return c;
-                            c = new CodeInstruction(OpCodes.Brtrue,branchLabel);
+                            c = new CodeInstruction(OpCodes.Brtrue, branchLabel);
+
                             yield return c;
                             // if (CanStoreMoreThanOneThingAt(map,loc)) jump...
                             c = new CodeInstruction(OpCodes.Ldarg_2); // map
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_1); // loc
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_0); // thing
+
                             yield return c;
-                            c = new CodeInstruction(OpCodes.Call, HarmonyLib.AccessTools.Method(
-                                "LWM.DeepStorage.Utils:CanStoreMoreThanOneThingAt"));
+                            c = new CodeInstruction(OpCodes.Call, AccessTools.Method("LWM.DeepStorage.Utils:CanStoreMoreThanOneThingAt"));
+
                             yield return c; // Utils.CanStoreMoreThanOneThingAt(map, loc);
                             c = new CodeInstruction(OpCodes.Brtrue, branchLabel);
+
                             yield return c; // if CanStoreMoreThanOneThing, skip this section
 
                             var hasCacheComp = ilGenerator.DeclareLocal(typeof(bool));
-                            var compCached = ilGenerator.DeclareLocal(typeof(CompCachedDeepStorage));
+                            var compCached   = ilGenerator.DeclareLocal(typeof(CompCachedDeepStorage));
                             // Add `Utils.GetCacheDeepStorageOnCell(loc, map, out compCached)` after the CanStoreMoreThanOneThing check.
                             c = new CodeInstruction(OpCodes.Ldarg_1); // loc
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_2); // map
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldloca, compCached); // compCached
+
                             yield return c;
-                            c = new CodeInstruction(OpCodes.Call, _getCompCachedMethod);
+                            c = new CodeInstruction(OpCodes.Call, PatchGenSpawnSpawn._getCompCachedMethod);
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Stloc, hasCacheComp);
+
                             yield return c;
 
                             // ********** Target call site ***********************************
@@ -404,20 +452,28 @@ namespace LWM.DeepStorage
                             // Add more check so the final code is:
                             //if (item2 != newThing && item2.def.category == ThingCategory.Item && (compCached == null || !compCached.StackableAt(thing, loc, map)))
                             c = new CodeInstruction(OpCodes.Ldloc_S, hasCacheComp);
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Brfalse_S, continueLabel);
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldloc_S, compCached);
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_0); // thing
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_1); // loc
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Ldarg_2); // map
+
                             yield return c;
-                            c = new CodeInstruction(OpCodes.Callvirt, _stackableAtMethod);
+                            c = new CodeInstruction(OpCodes.Callvirt, PatchGenSpawnSpawn._stackableAtMethod);
+
                             yield return c;
                             c = new CodeInstruction(OpCodes.Brtrue_S, branchLabel); // Branch to `newThing.Rotation = rot;`
+
                             yield return c;
 
                             break; // Done with this for loop
@@ -426,31 +482,35 @@ namespace LWM.DeepStorage
                 }
             }
 
-            for (; i < code.Count; i++) {
+            for (; i < code.Count; i++)
+            {
                 yield return code[i];
-                if (code[i].opcode == OpCodes.Callvirt && code[i].OperandIs(_spawnSetupMethod)) {
+
+                if (code[i].opcode == OpCodes.Callvirt && code[i].OperandIs(PatchGenSpawnSpawn._spawnSetupMethod))
+                {
                     while (code[++i].opcode != OpCodes.Brfalse_S) // <-- Stop at "Brfalse_S newThing.Spawned"
                     {
                         yield return code[i];
                     }
 
                     var j = i;
-                    while (code[++j].opcode != OpCodes.Ldnull) { // <-- Stop at "return null;"
+
+                    while (code[++j].opcode != OpCodes.Ldnull)
+                    {
+                        // <-- Stop at "return null;"
                     }
 
                     // If a new thing is DeSpawned because it is absorbed, abort the rest of the Spawn process.
                     var retLabel = ilGenerator.DefineLabel();
                     code[j].labels.Add(retLabel);
                     code[i].operand = retLabel; // <-- Have "Brfalse_S newThing.Spawned" point to "return null".
+
                     break;
                 }
             }
+
             // finish the rest of the function:
-            for (; i < code.Count; i++) {
-                yield return code[i];
-            }
+            for (; i < code.Count; i++) { yield return code[i]; }
         }
     } // done with patching GenSpawn's Spawn(...)
-
-
 }

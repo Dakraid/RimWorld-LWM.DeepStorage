@@ -1,21 +1,29 @@
-using RimWorld;
-using Verse;
-
-using HarmonyLib;
-using System.Reflection;
-using System.Reflection.Emit; // for OpCodes in Harmony Transpiler
-using System.Collections.Generic;
-using System.Linq;
+// for OpCodes in Harmony Transpiler
 
 // trace utils
 
 /* ListerHaulables should check if items in DSU are haulable
- * This is important in cases where a user changes what is 
+ * This is important in cases where a user changes what is
  * allowed in a DSU
  */
 
-namespace LWM.DeepStorage
+namespace DeepStorage
 {
+#region
+    using HarmonyLib;
+
+    using JetBrains.Annotations;
+
+    using RimWorld;
+
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Reflection;
+    using System.Reflection.Emit;
+
+    using Verse;
+#endregion
+
     /********************
      * ListerHaulables' ListerHaulablesTick():
      *   ListerHaulablesTick goes thru some fancy mechanics to check every
@@ -35,33 +43,34 @@ namespace LWM.DeepStorage
      *
      * Note that it is safe for this patch to be applied more than once.
      */
-    [HarmonyPatch(typeof(RimWorld.ListerHaulables), "ListerHaulablesTick")]
-    internal static class PatchListerHaulablesTick {
+    [UsedImplicitly]
+    [HarmonyPatch(typeof(ListerHaulables), "ListerHaulablesTick")]
+    internal static class PatchListerHaulablesTick
+    {
+        [UsedImplicitly]
         private static bool Prefix() =>
             // huge performance boost with negligible side effects
             Find.TickManager.TicksGame % 250 == 0;
 
-        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
-            var code=instructions.ToList();
-            var check=typeof(ListerHaulables).GetMethod("Check", BindingFlags.NonPublic|BindingFlags.Instance);
+        [UsedImplicitly]
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code       = instructions.ToList();
+            var check      = typeof(ListerHaulables).GetMethod("Check", BindingFlags.NonPublic | BindingFlags.Instance);
             var madeChange = false;
-            for (var i=0; i<code.Count; i++) {
-                    // check both Branch and Branch_Short for the `Break;` command:
-                if ((code[i].opcode!=OpCodes.Br && code[i].opcode!=OpCodes.Br_S) ||
-                    code[i-1].opcode!=OpCodes.Call ||
-                    (MethodInfo)code[i-1].operand!=check) {
-                    yield return code[i];
-                } else {
+
+            for (var i = 0; i < code.Count; i++)
+            {
+                // check both Branch and Branch_Short for the `Break;` command:
+                if (code[i].opcode != OpCodes.Br && code[i].opcode != OpCodes.Br_S || code[i - 1].opcode != OpCodes.Call || (MethodInfo) code[i - 1].operand != check) { yield return code[i]; }
+                else
+                {
                     //    Log.Warning("Found the 'break;' code! Skipping...");
                     madeChange = true;
                 }
             }
-            if (!madeChange)
-            {
-                Log.Warning("LWM.DeepStorage: could not patch ListerHaulablesTick()\nThis may be a problem, unless some other hauling/storage mod has patched ListerHaulablesTick()");
-            }
 
-            yield break;
+            if (!madeChange) { Log.Warning("LWM.DeepStorage: could not patch ListerHaulablesTick()\nThis may be a problem, unless some other hauling/storage mod has patched ListerHaulablesTick()"); }
         }
     }
 }
